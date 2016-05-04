@@ -304,6 +304,8 @@ private slots:
 
     void network_reply_finished(QNetworkReply* reply);
 
+    void on_pushButtonLoadPKCS12_clicked();
+
 signals:
     //extension_button_del_on_clicked(int row);
     add_text_output(QString);

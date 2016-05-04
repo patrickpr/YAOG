@@ -1418,6 +1418,11 @@ void SSLMainWindow::on_pushButtonSave2p12_clicked() // TODO : finish this
     fclose(file);
 }
 
+void SSLMainWindow::on_pushButtonLoadPKCS12_clicked()
+{
+    QMessageBox::information(this,"Not yes","Not implemented yet","ok");
+}
+
 
 /************************ Settings ************************************************/
 
@@ -1514,7 +1519,7 @@ void SSLMainWindow::check_updates()
     connect(network, SIGNAL(finished(QNetworkReply*)),
             this, SLOT(network_reply_finished(QNetworkReply*)));
 
-    QUrl updateurl=QUrl("http://www.proy.org/update.php");
+    QUrl updateurl=QUrl("http://yaog.proy.org/update.php");
 
     QUrlQuery postdata;
     postdata.addQueryItem("version",YAOGVERSION);
@@ -1529,7 +1534,8 @@ void SSLMainWindow::check_updates()
 
 void SSLMainWindow::network_reply_finished(QNetworkReply* reply) //TODO
 {
-    QRegExp ok("^.*:OK");
+    QRegExp ok("^OK:.*");
+    QRegExp update("^UPDATE:.*");
     QByteArray bts = reply->readAll();
     QString str(bts);
     reply->deleteLater();
@@ -1538,7 +1544,11 @@ void SSLMainWindow::network_reply_finished(QNetworkReply* reply) //TODO
         //QMessageBox::information(this,"Reply",str,"Up to date");
         return;
     }
-    //TODO
-    QMessageBox::information(this,"Update Available",str,"ok");
-
+    if (update.exactMatch(str))
+    { // TODO : make update automatic
+        QMessageBox::information(this,"Update Available",str,"Up to date");
+        return;
+    }
+    //TODO On all other errors, check last OK reply : if older than 1 month, alert user
+    //For now, silently die (alone)
 }

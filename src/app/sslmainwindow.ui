@@ -17,7 +17,7 @@
    </sizepolicy>
   </property>
   <property name="windowTitle">
-   <string>SSLMainWindow</string>
+   <string>Yet Another OpenSSL GUI</string>
   </property>
   <widget class="QWidget" name="centralWidget">
    <widget class="QGroupBox" name="groupBoxSubject">
@@ -359,9 +359,9 @@
     <widget class="QPushButton" name="pushButtonGenerate">
      <property name="geometry">
       <rect>
-       <x>130</x>
+       <x>160</x>
        <y>20</y>
-       <width>141</width>
+       <width>110</width>
        <height>23</height>
       </rect>
      </property>
@@ -373,8 +373,8 @@
      <property name="geometry">
       <rect>
        <x>280</x>
-       <y>50</y>
-       <width>47</width>
+       <y>80</y>
+       <width>70</width>
        <height>20</height>
       </rect>
      </property>
@@ -386,7 +386,7 @@
      <property name="geometry">
       <rect>
        <x>280</x>
-       <y>80</y>
+       <y>100</y>
        <width>69</width>
        <height>22</height>
       </rect>
@@ -411,9 +411,9 @@
     <widget class="QComboBox" name="comboBoxKeyType">
      <property name="geometry">
       <rect>
-       <x>50</x>
+       <x>70</x>
        <y>20</y>
-       <width>69</width>
+       <width>80</width>
        <height>22</height>
       </rect>
      </property>
@@ -737,6 +737,19 @@
     </property>
     <property name="text">
      <string>Save Settings</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="pushButtonLoadPKCS12">
+    <property name="geometry">
+     <rect>
+      <x>100</x>
+      <y>240</y>
+      <width>75</width>
+      <height>23</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Load PKCS12</string>
     </property>
    </widget>
   </widget>

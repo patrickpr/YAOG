@@ -124,15 +124,39 @@ public:
      * check ssl errors
      */
     int create_csr();
+    /**
+     * @brief get_csr_PEM : put CSR in PEM format to a string
+     * @param Skey : string to receive CSR
+     * @param maxlength : max size to put in Skey
+     * @return
+     */
     int get_csr_PEM(char* Skey,size_t maxlength);
+    /**
+     * @brief get_csr_PEM : put CSR in human readable format to a string
+     * @param Skey : string to receive CSR
+     * @param maxlength : max size to put in Skey
+     * @return
+     */
     int get_csr_HUM(char* Skey,size_t maxlength);
+    /**
+     * @brief set_csr_PEM : load csr in Skey in openssl structure
+     * @param Skey : string containing CSR in PEM format
+     * @param password : password if encrypted cert, can be null
+     * @return 0: sucess, 1 : error reading csr, 2: wrong password
+     * check ssl errors
+     */
     int set_csr_PEM(const char* Skey, char* password);
 
     void set_display_callback(void(*callback)(char*));
     void clear_display_callback();
 
-    static int abortnow;
+    static int abortnow; //!< static var to abort key generation when set to 1
 
+    /**
+     * @brief print_ssl_errors : put all errors in buffer and clear them
+     * @param buffer
+     * @param size
+     */
     void print_ssl_errors(char* buffer,size_t size);
     void empty_ssl_errors();
     int SSLError; //!< set to 1 if at least one SSL error raised. reset with empty_ssl_errors (but not with print_ssl_errors)
