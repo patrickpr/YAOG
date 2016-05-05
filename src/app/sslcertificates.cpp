@@ -129,7 +129,7 @@ void SSLCertificates::clear_display_callback()
 int SSLCertificates::add_cert_object_byname(const char* label,const unsigned char* content)
 {
    // Just to check it is valid
-/*
+    /*
     X509_NAME2* X509_name= X509_get_subject_name(this->x509);
    if (X509_NAME_add_entry_by_txt(X509_name,label,
                                   MBSTRING_ASC,
@@ -1088,13 +1088,29 @@ int SSLCertificates::check_key() // TODO DSA and DH
 int SSLCertificates::check_key_cert_match()
 {
     if (this->check_key() != 0)
-        return 1;
+        return 2;
 
-    int retcode = X509_verify(this->x509, this->pkey);
-    if (retcode !=1)
+    SSL_CTX* ctx = SSL_CTX_new(TLSv1_client_method());
+    if (SSL_CTX_use_certificate(ctx, this->x509)!=1)
     {
         this->get_ssl_errors();
+        SSL_CTX_free(ctx);
+        return 2;
+    }
+    if (SSL_CTX_use_PrivateKey(ctx, this->pkey)!=1)
+    {
+        this->get_ssl_errors();
+        SSL_CTX_free(ctx);
+        return 2;
+    }
+
+    if (SSL_CTX_check_private_key(ctx)!=1)
+    //int retcode = X509_verify(this->x509, this->pkey);
+    {
+        this->get_ssl_errors();
+        SSL_CTX_free(ctx);
         return 1;
     }
+    SSL_CTX_free(ctx);
     return 0;
 }

@@ -1,14 +1,15 @@
 #ifndef SSLCERTIFICATES_H
 #define SSLCERTIFICATES_H
 
-#include "D:\apps\dev\OpenSSL-Win32\include\openssl\pem.h"
-#include "D:\apps\dev\OpenSSL-Win32\include\openssl\conf.h"
-#include "D:\apps\dev\OpenSSL-Win32\include\openssl\x509v3.h"
-#include "D:\apps\dev\OpenSSL-Win32\include\openssl\crypto.h"
-#include "D:\apps\dev\OpenSSL-Win32\include\openssl\evp.h"
-#include "D:\apps\dev\OpenSSL-Win32\include\openssl\pkcs12.h"
+#include "src/openssl/include/openssl/pem.h"
+#include "src/openssl/include/openssl/conf.h"
+#include "src/openssl/include/openssl/x509v3.h"
+#include "src/openssl/include/openssl/crypto.h"
+#include "src/openssl/include/openssl/evp.h"
+#include "src/openssl/include/openssl/pkcs12.h"
+#include "src/openssl/include/openssl/ssl.h"
 #ifndef OPENSSL_NO_ENGINE
-#include "D:\apps\dev\OpenSSL-Win32\include\openssl\engine.h"
+#include "src/openssl/include/openssl/engine.h"
 #endif
 
 #include <string>
@@ -72,7 +73,7 @@ public:
     int check_key();
     /**
      * @brief check_key_cert_match : check certificate/key match. Key & cert already loaded
-     * @return 0 on success 1 on error
+     * @return 0 on success 1 on no match, 2 on loading key/cert error
      */
     int check_key_cert_match();
 
