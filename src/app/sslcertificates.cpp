@@ -1,5 +1,14 @@
 #include "sslcertificates.h"
-#include "D:\apps\dev\OpenSSL-Win32\include\openssl\applink.c"
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+  #include <openssl\applink.c>
+#else
+  #include <openssl\applink.c>
+#endif
+
+#include <string.h>
+
+#include <openssl/ossl_typ.h>
+
 #ifdef Q_OS_WIN
 #include <windows.h> // for Sleep
 #endif
@@ -26,9 +35,13 @@ SSLCertificates::SSLCertificates()
 
     // OpenSSL load of quite everything.
     ERR_load_crypto_strings (); // Load error strings
+    SSL_load_error_strings(); // Load errors (as ssl app)
     OpenSSL_add_all_algorithms(); // Add all encryption algo
-    OpenSSL_add_all_digests(); // Add al disgests
-    OpenSSL_add_all_ciphers(); //
+    OpenSSL_add_all_digests(); // Add all digests
+    OpenSSL_add_all_ciphers(); // all ciphers
+    
+    SSL_library_init();
+
     SSLCertificates::abortnow=0;
     this->SSLErrorNum=-1;
     this->SSLError=0;
@@ -39,6 +52,10 @@ SSLCertificates::SSLCertificates()
     this->startDate=this->endDate=NULL;
     this->serialnum=1;
     this->extensionNum=0;
+    this->p12Name=NULL;
+    this->ca=NULL;
+    this->caListCerts.clear();
+    this->caListCN.clear();
 
     //TODO : random init
 }
@@ -65,10 +82,24 @@ SSLCertificates::~SSLCertificates()
     ENGINE_cleanup();
 #endif
     CRYPTO_cleanup_all_ex_data();
-    CRYPTO_mem_leaks(this->bio_err);
+
+    // TODO : this writes mem leaks with 1.0.2, not found in 1.1 -> check new
+    //CRYPTO_mem_leaks(this->bio_err);
     BIO_free(this->bio_err);
+    if (p12Name != NULL) free(p12Name);
+    if (ca!=NULL) sk_X509_free(ca);
+    caListCN.clear();
+    for (std::vector<X509*>::iterator x509 = caListCerts.begin();
+         x509 != caListCerts.end(); ++x509)
+    {
+      X509_free(*x509);
+    }
+    caListCerts.clear();
+
     RAND_cleanup();
 }
+
+/*************************** Display and errors functions ************************/
 
 void SSLCertificates::print_ssl_errors(char* buffer,size_t size)
 {
@@ -126,6 +157,8 @@ void SSLCertificates::clear_display_callback()
    SSLCertificates::output_display=NULL;
 }
 
+/*************************** Certificate functions ************************/
+
 int SSLCertificates::add_cert_object_byname(const char* label,const unsigned char* content)
 {
    // Just to check it is valid
@@ -156,7 +189,15 @@ int SSLCertificates::set_object(const unsigned char* oCN, const unsigned char* o
 {
     if (strcmp((const char*)oCN,"")!=0)
     {
-        if (this->add_cert_object_byname("CN",oCN) != 0) return 1;
+        if (strcmp((const char*)omail,"")!=0)
+        {
+            std::string newCN=(const char*)oCN;
+            newCN += "/emailAddress=";
+            newCN += (const char*)omail;
+            if (this->add_cert_object_byname("CN",(const unsigned char*)newCN.data()) != 0) return 1;
+        }
+        else
+            if (this->add_cert_object_byname("CN",oCN) != 0) return 1;
     }
     else
         return 1;
@@ -170,8 +211,7 @@ int SSLCertificates::set_object(const unsigned char* oCN, const unsigned char* o
         if (this->add_cert_object_byname("ST",oS) != 0) return 1;
     if (strcmp((const char*)oC,"")!=0)
         if (this->add_cert_object_byname("C",oC) != 0) return 1;
-    if (strcmp((const char*)omail,"")!=0)
-        if (this->add_cert_object_byname("email",omail) != 0) return 1;
+
 
     return 0;
 }
@@ -288,15 +328,20 @@ int SSLCertificates::create_key()
     BIGNUM *f4 = BN_new(); // Init exponent (65537)
     BN_set_word(f4, RSA_F4);
     // Callback structure
-    BN_GENCB cb;
-    BN_GENCB_set(&cb,this->callback, NULL);
+#if OPENSSL_VERSION_NUMBER > 0x10100000L
+    BN_GENCB* cb = BN_GENCB_new();
+#else
+    BN_GENCB cbn;
+    BN_GENCB* cb=&cbn;
+#endif
+    BN_GENCB_set(cb,this->callback, NULL);
 
     int retcode;
 
     switch (this->keyType)
     {
     case KeyRSA:
-        retcode = RSA_generate_key_ex(this->rsakey, this->keyLength, f4,&cb);
+        retcode = RSA_generate_key_ex(this->rsakey, this->keyLength, f4,cb);
 
         BN_free(f4);
         if (retcode != 1)
@@ -329,9 +374,9 @@ int SSLCertificates::create_key()
         break;
     case KeyDSA:
         retcode = DSA_generate_parameters_ex(this->dsakey, this->keyLength,
-                        NULL,0, // Seed null -> random
-                        NULL, NULL,// counter unused TODO : check if usefulle
-                        &cb);
+                        NULL,0, // TODO Seed null -> random
+                        NULL, NULL,// counter unused TODO : check if usefull
+                        cb);
         if (retcode == 0)
         {
             this->get_ssl_errors();
@@ -355,7 +400,9 @@ int SSLCertificates::create_key()
     }
 
     if (this->output_display != NULL) this->output_display((char*)"Key generation finished\n");
-
+#if OPENSSL_VERSION_NUMBER > 0x10100000L
+    BN_GENCB_free(cb); // TODO : also free in other cases -> change function structure
+#endif
     return 0;
 }
 
@@ -539,7 +586,7 @@ int SSLCertificates::get_csr_HUM(char* Skey,size_t maxlength) {
     return 0;
 }
 
-int SSLCertificates::set_csr_PEM(const char* Skey, char* password=NULL)
+int SSLCertificates::set_csr_PEM(const char* Skey, char* password)
 {
     BIO *mem = BIO_new(BIO_s_mem());
     BIO_puts(mem,Skey);
@@ -562,11 +609,14 @@ int SSLCertificates::set_csr_PEM(const char* Skey, char* password=NULL)
     return 0;
 }
 
-int SSLCertificates::get_cert_PEM(char *Skey, size_t maxlength) {
+int SSLCertificates::get_cert_PEM(char *Skey, size_t maxlength, X509 *locX509) {
 
     BIO *mem = BIO_new(BIO_s_mem());
     BUF_MEM *bptr;
-    if (!PEM_write_bio_X509(mem,this->x509))
+    // take local if not specified
+    if (locX509==NULL) locX509=this->x509;
+
+    if (!PEM_write_bio_X509(mem,locX509))
     {
         this->get_ssl_errors();
         BIO_free(mem);
@@ -609,13 +659,59 @@ int SSLCertificates::get_cert_HUM(char* Skey,size_t maxlength) {
     return 0;
 }
 
-int SSLCertificates::set_cert_PEM(const char* Skey, char* password=NULL)
+int SSLCertificates::get_cert_CN(char* CN,size_t maxlength, X509* cert)
+{
+  int common_name_loc = -1;
+   X509_NAME_ENTRY *common_name_entry = NULL;
+   ASN1_STRING *common_name_asn1 = NULL;
+   char *common_name_str = NULL;
+
+   if (cert == NULL)
+   {
+     cert=this->x509;
+   }
+   // Find the position of the CN field in the Subject field of the certificate
+   common_name_loc = X509_NAME_get_index_by_NID(X509_get_subject_name(cert), NID_commonName, -1);
+   if (common_name_loc < 0) {
+           return 1;
+   }
+
+   // Extract the CN field
+   common_name_entry = X509_NAME_get_entry(X509_get_subject_name(cert), common_name_loc);
+   if (common_name_entry == NULL) {
+           return 1;
+   }
+
+   // Convert the CN field to a C string
+   common_name_asn1 = X509_NAME_ENTRY_get_data(common_name_entry);
+   if (common_name_asn1 == NULL) {
+           return 1;
+   }
+#if OPENSSL_VERSION_NUMBER > 0x10100000L
+   common_name_str = (char *) ASN1_STRING_get0_data(common_name_asn1);
+#else
+   common_name_str = (char *) ASN1_STRING_data(common_name_asn1);
+#endif
+   // Make sure there isn't an embedded NUL character in the CN
+   if ((size_t)ASN1_STRING_length(common_name_asn1) != strlen(common_name_str)) {
+           return 1;
+   }
+   if (strlen(common_name_str)>=maxlength)
+     {
+       return 2;
+     }
+   strncpy(CN,common_name_str,strlen(common_name_str));
+   CN[strlen(common_name_str)]=0;
+   return 0;
+}
+
+int SSLCertificates::set_cert_PEM(const char* Skey, const char* password)
 {
     BIO *mem = BIO_new(BIO_s_mem());
     BIO_puts(mem,Skey);
 
     this->x509 = PEM_read_bio_X509(mem,NULL,
-                    &SSLCertificates::pem_password_callback,password);
+                    &SSLCertificates::pem_password_callback,(void*)password);
         //(BIO *bp, EVP_PKEY **x,pem_password_cb *cb, void *u);
     BIO_free(mem);
     if (this->x509 == NULL)
@@ -638,14 +734,7 @@ int SSLCertificates::get_key_PEM(char *Skey, size_t maxlength) {
     BUF_MEM *bptr;
     switch (this->keyType)
     {
-    case KeyDSA:
-        if (!PEM_write_bio_DSAPrivateKey(mem,this->dsakey,NULL,NULL,0,NULL, NULL))
-        {
-            this->get_ssl_errors();
-            BIO_free(mem);
-            return 3;
-        }
-        break;
+    case KeyDSA:   // PEM_write_bio_DSAPrivateKey
     case KeyRSA:
     case KeyEC:
         if (!PEM_write_bio_PrivateKey(mem,this->pkey,NULL,NULL,0,NULL, NULL))
@@ -667,8 +756,8 @@ int SSLCertificates::get_key_PEM(char *Skey, size_t maxlength) {
     if (bptr->length >= maxlength) {
         BIO_free(mem);return 2;
     }
-    strncpy(Skey,bptr->data,bptr->length+1);
-    Skey[bptr->length+1]='\0';
+    strncpy(Skey,bptr->data,bptr->length);
+    Skey[bptr->length]='\0';
     BIO_free(mem);
     return 0;
 }
@@ -680,14 +769,22 @@ int SSLCertificates::get_key_HUM(char* Skey,size_t maxlength) {
 
     switch (this->keyType) {
     case KeyRSA:
+#if OPENSSL_VERSION_NUMBER > 0x10100000L
+        if (RSA_print(mem,EVP_PKEY_get0_RSA(pkey),0)==0) {
+#else
         if (RSA_print(mem,pkey->pkey.rsa,0)==0) {
-            this->get_ssl_errors();
+#endif
+          this->get_ssl_errors();
             strncpy(Skey,"Error printing RSA key",maxlength);
             return 3;
         }
         break;
     case KeyEC:
+#if OPENSSL_VERSION_NUMBER > 0x10100000L
+        if (EC_KEY_print(mem,EVP_PKEY_get0_EC_KEY(pkey),0)==0)
+#else
         if (EC_KEY_print(mem,pkey->pkey.ec,0)==0)
+#endif
         {
             this->get_ssl_errors();
             strncpy(Skey,"Error printing EC key",maxlength);
@@ -695,7 +792,11 @@ int SSLCertificates::get_key_HUM(char* Skey,size_t maxlength) {
         }
         break;
     case KeyDSA:
-        if (DSA_print(mem,this->dsakey,0)==0)
+#if OPENSSL_VERSION_NUMBER > 0x10100000L
+        if (DSA_print(mem,EVP_PKEY_get0_DSA(pkey),0)==0)
+#else
+        if (DSA_print(mem,pkey->pkey.dsa,0)==0)
+#endif
         {
             this->get_ssl_errors();
             strncpy(Skey,"Error printing DSA key",maxlength);
@@ -711,13 +812,15 @@ int SSLCertificates::get_key_HUM(char* Skey,size_t maxlength) {
 
     BIO_get_mem_ptr(mem, &bptr);
     if (bptr->length == 0) {
+        this->get_ssl_errors();
         BIO_free(mem);return 1;
     }
     if (bptr->length >= maxlength) {
+        this->get_ssl_errors();
         BIO_free(mem);return 2;
     }
-    strncpy(Skey,bptr->data,bptr->length+1);
-    Skey[bptr->length+1]='\0';
+    strncpy(Skey,bptr->data,bptr->length);
+    Skey[bptr->length]='\0';
     BIO_free(mem);
     return 0;
 }
@@ -742,7 +845,11 @@ int SSLCertificates::set_key_PEM(const char* Skey, char* password=NULL)
         }
         return 1;
     }
-    switch (this->pkey->type)
+#if OPENSSL_VERSION_NUMBER > 0x10100000L
+    switch (EVP_PKEY_type(EVP_PKEY_id(this->pkey)))
+#else
+    switch (get_key_type())
+#endif
     {
     case EVP_PKEY_RSA:
         this->keyType=KeyRSA;
@@ -782,15 +889,7 @@ int SSLCertificates::get_key_PEM_enc(char *Skey, size_t maxlength, char* passwor
 
     switch (this->keyType)
     {
-    case KeyDSA:
-        if (PEM_write_bio_DSAPrivateKey(mem,this->dsakey,this->useCipher,
-                                         (unsigned char*) password,strlen(password),NULL, NULL)== 0)
-        {
-            this->get_ssl_errors();
-            BIO_free(mem);
-            return 3;
-        }
-        break;
+    case KeyDSA: // PEM_write_bio_DSAPrivateKey
     case KeyRSA:
     case KeyEC:
         if (PEM_write_bio_PKCS8PrivateKey(mem,this->pkey,this->useCipher,
@@ -819,23 +918,156 @@ int SSLCertificates::get_key_PEM_enc(char *Skey, size_t maxlength, char* passwor
     return 0;
 }
 
-int SSLCertificates::save_to_pkcs12(FILE *file) // TODO : add options name, pass, ...
+int SSLCertificates::save_to_pkcs12(FILE *file, char* name,char* pass)
 {
     PKCS12 *newkey;
     newkey = PKCS12_create(
-                (char*)"", //char *pass
-                (char*)"YAOG Certificate", // char *name
+                pass, //char *pass
+                name, // char *name
                 this->pkey, //EVP_PKEY *pkey
                 this->x509, //X509 *cert,
-                NULL,   //STACK_OF(X509) *ca,
-                0,0,0,0,0); //    int nid_key, int nid_cert, int iter, int mac_iter, int keytype);
-    if (newkey==NULL) return 1;
-    if (i2d_PKCS12_fp(file,newkey) !=0)
-    {
+                this->ca,   //STACK_OF(X509) *ca,
+                0,      //    int nid_key
+                0,      //    int nid_cert
+                PKCS12_DEFAULT_ITER,      //    int iter
+                0,      //    int mac_iter
+                NID_key_usage);      //   int keytype
+    if (newkey==NULL)
+      {
+        this->get_ssl_errors();
         return 1;
+      }
+    if (i2d_PKCS12_fp(file,newkey) <=0)
+    {
+        this->get_ssl_errors();
+        return 2;
     }
     PKCS12_free(newkey);
     return 0;
+}
+
+char *SSLCertificates::find_friendly_name(PKCS12 *p12)
+{
+    STACK_OF(PKCS7) *safes = PKCS12_unpack_authsafes(p12);
+    int n, m;
+    char *name = NULL;
+    PKCS7 *safe;
+    STACK_OF(PKCS12_SAFEBAG) *bags;
+    PKCS12_SAFEBAG *bag;
+
+    if ((safes = PKCS12_unpack_authsafes(p12)) == NULL)
+        return NULL;
+
+    for (n = 0; n < sk_PKCS7_num(safes) && name == NULL; n++) {
+        safe = sk_PKCS7_value(safes, n);
+        if (OBJ_obj2nid(safe->type) != NID_pkcs7_data
+                || (bags = PKCS12_unpack_p7data(safe)) == NULL)
+            continue;
+
+        for (m = 0; m < sk_PKCS12_SAFEBAG_num(bags) && name == NULL; m++) {
+            bag = sk_PKCS12_SAFEBAG_value(bags, m);
+            name = PKCS12_get_friendlyname(bag);
+        }
+        sk_PKCS12_SAFEBAG_pop_free(bags, PKCS12_SAFEBAG_free);
+    }
+
+    sk_PKCS7_pop_free(safes, PKCS7_free);
+
+    return name;
+}
+
+int SSLCertificates::get_pkcs12_certs()
+{
+  // not initialized or empty
+  if ((ca==NULL)||(sk_X509_num(ca)==0)) return 0;
+
+  int num=sk_X509_num(ca);
+  char p12CN[100];
+  std::string p12CNStr;
+  X509* p12Cert;
+
+  caListCN.reserve(num);
+  caListCerts.reserve(num);
+  for (int i=0;i<num;i++)
+  {
+    p12Cert=X509_dup(sk_X509_value(ca,i));
+    caListCerts.push_back(p12Cert);
+    if (this->get_cert_CN(p12CN,100,p12Cert) == 0)
+    {
+      p12CNStr.assign(p12CN);      
+    }
+    else
+    {
+       p12CNStr.assign("<Unknown CN>");
+    }
+    caListCN.push_back(p12CNStr);
+  }
+  return num;
+}
+
+int SSLCertificates::get_pkcs12_certs_num()
+{
+  return this->caListCerts.size();
+}
+
+std::string SSLCertificates::get_pkcs12_certs_CN(unsigned int n)
+{
+  if (n>=this->caListCN.size()) return std::string("");
+  return this->caListCN.at(n);
+}
+
+int SSLCertificates::get_pkcs12_certs_pem(unsigned int n,char *Skey, size_t maxlength)
+{
+  if (n>=this->caListCerts.size()) return 10;
+  return get_cert_PEM(Skey,maxlength,this->caListCerts.at(n));
+}
+
+int SSLCertificates::load_pkcs12(FILE *file, const char* password)
+{
+  PKCS12 *p12;
+  if ((p12=d2i_PKCS12_fp(file,NULL)) == NULL)
+  {
+    this->get_ssl_errors();
+    return 1;
+  }
+  if (!PKCS12_parse(p12, password, &pkey, &x509, &ca)) {
+      this->get_ssl_errors();
+      return 2;
+  }
+  switch (EVP_PKEY_type(EVP_PKEY_id(this->pkey)))
+  { // TODO : use get_key_type instead
+    case EVP_PKEY_RSA: this->keyType = KeyRSA; break;
+    case EVP_PKEY_DSA: this->keyType = KeyDSA; break;
+    case EVP_PKEY_EC: this->keyType = KeyEC; break;
+    default: PKCS12_free(p12);return 3;
+  }
+  char * name=find_friendly_name(p12);
+  get_pkcs12_certs();
+  p12Name=strdup(name);
+  // TODO check mem leak. free(name) doest sigsev.
+  //free(name);
+  PKCS12_free(p12);
+  return 0;
+}
+
+char *SSLCertificates::get_pkcs12_name()
+{
+  return this->p12Name;
+}
+
+int SSLCertificates::add_pkcs12_ca(const char* Skey)
+{
+  if (ca==NULL)
+  {
+    ca = sk_X509_new_null();
+  }
+  SSLCertificates * loccert=new SSLCertificates();
+  if (loccert->set_cert_PEM(Skey,"") != 0)
+  {
+    return 1;
+  }
+  sk_X509_push(ca,loccert->x509);
+  return 0;
 }
 
 int SSLCertificates::callback(int p, int , BN_GENCB*)
@@ -1003,7 +1235,7 @@ int SSLCertificates::mkcert(X509 **x509p, EVP_PKEY **pkeyp, int bits, int serial
 
 
 #ifdef CUSTOM_EXT
-    /* Maybe even add our own extension based on existing */
+    /* to add extension based on existing */
     {
         int nid;
         nid = OBJ_create("1.2.3.4", "MyAlias", "My Test Alias Extension");
@@ -1026,16 +1258,16 @@ int SSLCertificates::get_key_type()
 {
     if (this->pkey == NULL)
         return NID_undef;
+
+#if OPENSSL_VERSION_NUMBER > 0x10100000L
+    switch (EVP_PKEY_type(EVP_PKEY_id(this->pkey)))
+#else
     switch (EVP_PKEY_type(this->pkey->type))
+#endif
     {
     case EVP_PKEY_RSA:
-    case EVP_PKEY_RSA2:
         return KeyRSA;
     case EVP_PKEY_DSA:
-    case EVP_PKEY_DSA1:
-    case EVP_PKEY_DSA2:
-    case EVP_PKEY_DSA3:
-    case EVP_PKEY_DSA4:
         return KeyDSA;
     case EVP_PKEY_EC:
         return KeyEC;
@@ -1063,7 +1295,7 @@ int SSLCertificates::check_key() // TODO DSA and DH
         return 1;
     case KeyDSA :
         dsa = EVP_PKEY_get1_DSA(pkey);
-        //retcode = DSA_check_key(dsa); TODO : find check kye function
+        //retcode = DSA_check_key(dsa); TODO : find check key function
         retcode = 0; // Send OK for now
         DSA_free(dsa);
         return retcode;
@@ -1089,8 +1321,14 @@ int SSLCertificates::check_key_cert_match()
 {
     if (this->check_key() != 0)
         return 2;
-
-    SSL_CTX* ctx = SSL_CTX_new(TLSv1_client_method());
+    // init context
+    SSL_CTX* ctx = SSL_CTX_new( TLSv1_2_client_method()); //  TLSv1_client_method());
+    if (ctx==NULL)
+      {
+        this->get_ssl_errors();
+        return 2;
+      }
+    // add certificate and key to context
     if (SSL_CTX_use_certificate(ctx, this->x509)!=1)
     {
         this->get_ssl_errors();

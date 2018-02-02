@@ -1,20 +1,24 @@
 #ifndef SSLCERTIFICATES_H
 #define SSLCERTIFICATES_H
 
-#include "src/openssl/include/openssl/pem.h"
-#include "src/openssl/include/openssl/conf.h"
-#include "src/openssl/include/openssl/x509v3.h"
-#include "src/openssl/include/openssl/crypto.h"
-#include "src/openssl/include/openssl/evp.h"
-#include "src/openssl/include/openssl/pkcs12.h"
-#include "src/openssl/include/openssl/ssl.h"
+#include <openssl/pem.h>
+#include <openssl/conf.h>
+#include <openssl/x509v3.h>
+#include <openssl/crypto.h>
+#include <openssl/evp.h>
+#include <openssl/pkcs12.h>
+#include <openssl/ssl.h>
+#include <openssl/bn.h>
+#include <openssl/opensslv.h>
+
 #ifndef OPENSSL_NO_ENGINE
-#include "src/openssl/include/openssl/engine.h"
+#include <openssl/engine.h>
 #endif
 
 #include <string>
 #include <stdio.h>
 #include <stdlib.h>
+#include <vector>
 
 #define KeyRSA 1
 #define KeyDSA 2
@@ -88,13 +92,14 @@ public:
      */
     int create_cert();
     /**
-     * @brief get_cert_PEM : put cert as Pem in skey
+     * @brief get_cert_PEM : put current cert as Pem in skey
      * @param Skey
      * @param maxlength : of skey
-     * @return 0: sucess, 1 : error copying, 2: maxlength too small, 3: error getting cert
+     * @param locX509 : optionnal X509* to get pem from
+     * @return 0: sucess, 1 : error copying, 2: maxlength too small, 3: error getting cert (note return of get_pkcs12_certs_pem)
      * check ssl errors
      */
-    int get_cert_PEM(char* Skey,size_t maxlength);
+    int get_cert_PEM(char* Skey,size_t maxlength,X509* locX509=NULL);
     /**
      * @brief get_cert_HUM : put cert as text human readeable
      * @param Skey
@@ -104,21 +109,77 @@ public:
      */
     int get_cert_HUM(char* Skey,size_t maxlength);
     /**
+     * @brief get_cert_CN : get CN of certificate (copy of openssl wiki)
+     * @param CN : CN of certificate
+     * @param maxlength : max length of CN
+     * @param cert : optional cert if not using internal one
+     * @return 0: OK, 1: no CN/error
+     */
+    int get_cert_CN(char* CN, size_t maxlength, X509 *cert=NULL);
+    /**
      * @brief set_cert_PEM : load cert in skey in openssl structure
      * @param Skey
      * @param password : password if encrypted cert, can be null
      * @return 0: sucess, 1 : reading cert, 2: maxlength too small, 3: error getting cert
      * check ssl errors
      */
-    int set_cert_PEM(const char* Skey, char* password);
-
+    int set_cert_PEM(const char* Skey, const char *password=NULL);
     /**
      * @brief save_to_pkcs12 : save cert and key to pkcs12 file
      * @param file : opened file descriptor
-     * @return 0: success, 1: error
+     * @param name : fancy name of P12
+     * @param pass : password
+     * @return 0: success, 1: error creating p12 struct, 2 : error writing p12
      */
-    int save_to_pkcs12(FILE* file);
-
+    int save_to_pkcs12(FILE* file, char *name, char *pass);
+    /**
+     * @brief find_friendly_name : copy of SSL Demo pkread.c to find name of pkcs12 structure
+     * @param p12 : pkcs12 structure
+     * @return : friendly name or NULL if not found
+     */
+    char *find_friendly_name(PKCS12 *p12);
+    /**
+     * @brief get_pkcs12_certs : put all additionnal certs of pkcs12 (in ca var) in  caList
+     * @return number of certificates found.
+     */
+    int get_pkcs12_certs();
+    /**
+     * @brief load_pkcs12 : load pkcs12 from file
+     * @param file : opened file desriptor
+     * @param password : password to decrypt file
+     * @return 0: success, 1: error reading p12, 2: error parsing p12, 3 : unsupported key type
+     */
+    int load_pkcs12(FILE* file, const char *password);
+    /**
+     * @brief get_pkcs12_name
+     * @return friendly name of PKCS12 structure or NULL.
+     */
+    char * get_pkcs12_name();
+    /**
+     * @brief get_pkcs12_certs_num
+     * @return num certificates decoded in pkcs12
+     */
+    int get_pkcs12_certs_num();
+    /**
+     * @brief get_pkcs12_certs_CN : get CN of cert in stack in pkcs12
+     * @param n : num in ca stack
+     * @return CN of cert
+     */
+    std::string get_pkcs12_certs_CN(unsigned int n);
+    /**
+     * @brief get_pkcs12_certs_pem :  get pem of cert stack in pkcs12
+     * @param n : num in ca stack
+     * @param Skey : returned pem
+     * @param maxlength : of skeys
+     * @return 0: sucess, 1 : error copying, 2: maxlength too small, 3: error getting cert, 10: n is out of bound
+     */
+    int get_pkcs12_certs_pem(unsigned int n,char *Skey, size_t maxlength);
+    /**
+     * @brief add_pkcs12_ca : add certificate in pkcs12 cert stack
+     * @param Skey : certificate in pem format
+     * @return 0: OK , 1: error
+     */
+    int add_pkcs12_ca(const char* Skey);
     /**
      * @brief create_csr
      * @return 0: sucess, 1: error
@@ -233,7 +294,6 @@ public:
     int x509_extension_add(std::string extensionNameI, std::string extensionValI, int extensionCriticalI);
 
 
-
 private:
 
     EVP_MD* useDigest; //!< Digest to use
@@ -263,6 +323,12 @@ private:
     X509_REQ *csr; //!< certificate request
     DSA *dsakey; //!< dsa key
 
+/*  PKCS12 stuff */
+    STACK_OF(X509) *ca;
+    char *p12Name;
+    std::vector<std::string> caListCN;
+    std::vector<X509*> caListCerts;
+
 /*  SSL Stuff */
     /**
      * @brief callback : used by ssl for display during key gen (see output_display)
@@ -283,8 +349,8 @@ private:
     int SSLErrorNum; //!< index of SSLErrorList, -1 if list is empty
     void get_ssl_errors(); //!< read and delete SSL errors in SSL lib
 
-    BIO *bio_err; // TODO SEE if needed
-    char* bio_buf_error; // TODO SEE if needed
+    BIO *bio_err; // TODO SEE if needed as declared in every functions
+    char* bio_buf_error; // TODO SEE if needed (see above)
 
     int mkcert(X509 **x509p, EVP_PKEY **pkeyp, int bits, int serial, int days);
     int add_ext(X509 *cert, int nid, char *value);

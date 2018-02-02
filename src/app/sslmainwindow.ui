@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>807</width>
+    <width>919</width>
     <height>583</height>
    </rect>
   </property>
@@ -25,7 +25,7 @@
      <rect>
       <x>10</x>
       <y>0</y>
-      <width>331</width>
+      <width>431</width>
       <height>231</height>
      </rect>
     </property>
@@ -35,7 +35,7 @@
     <widget class="QPushButton" name="pushButtonGenerateCert">
      <property name="geometry">
       <rect>
-       <x>190</x>
+       <x>340</x>
        <y>200</y>
        <width>81</width>
        <height>23</height>
@@ -48,9 +48,9 @@
     <widget class="QComboBox" name="comboBoxCertGen">
      <property name="geometry">
       <rect>
-       <x>10</x>
+       <x>120</x>
        <y>200</y>
-       <width>171</width>
+       <width>211</width>
        <height>22</height>
       </rect>
      </property>
@@ -60,7 +60,7 @@
       <rect>
        <x>10</x>
        <y>20</y>
-       <width>311</width>
+       <width>411</width>
        <height>141</height>
       </rect>
      </property>
@@ -284,7 +284,7 @@
    <widget class="QGroupBox" name="groupBoxKey">
     <property name="geometry">
      <rect>
-      <x>350</x>
+      <x>450</x>
       <y>0</y>
       <width>371</width>
       <height>131</height>
@@ -422,9 +422,9 @@
    <widget class="QGroupBox" name="groupBox_3">
     <property name="geometry">
      <rect>
-      <x>350</x>
+      <x>450</x>
       <y>130</y>
-      <width>451</width>
+      <width>461</width>
       <height>141</height>
      </rect>
     </property>
@@ -475,7 +475,7 @@
      <rect>
       <x>10</x>
       <y>270</y>
-      <width>381</width>
+      <width>431</width>
       <height>261</height>
      </rect>
     </property>
@@ -487,7 +487,7 @@
       <rect>
        <x>10</x>
        <y>80</y>
-       <width>361</width>
+       <width>411</width>
        <height>171</height>
       </rect>
      </property>
@@ -553,7 +553,7 @@
     <widget class="QPushButton" name="pushButtonSaveCert">
      <property name="geometry">
       <rect>
-       <x>310</x>
+       <x>361</x>
        <y>10</y>
        <width>60</width>
        <height>23</height>
@@ -566,7 +566,7 @@
     <widget class="QPushButton" name="pushButtonLoadCert">
      <property name="geometry">
       <rect>
-       <x>310</x>
+       <x>361</x>
        <y>40</y>
        <width>60</width>
        <height>23</height>
@@ -579,7 +579,7 @@
     <widget class="QPushButton" name="pushButtonTestKey_2">
      <property name="geometry">
       <rect>
-       <x>169</x>
+       <x>220</x>
        <y>10</y>
        <width>131</width>
        <height>23</height>
@@ -593,9 +593,9 @@
    <widget class="QGroupBox" name="groupBox">
     <property name="geometry">
      <rect>
-      <x>400</x>
+      <x>450</x>
       <y>270</y>
-      <width>401</width>
+      <width>461</width>
       <height>261</height>
      </rect>
     </property>
@@ -607,7 +607,7 @@
       <rect>
        <x>10</x>
        <y>80</y>
-       <width>381</width>
+       <width>441</width>
        <height>171</height>
       </rect>
      </property>
@@ -615,7 +615,7 @@
     <widget class="QPushButton" name="pushButtonEncryptKey">
      <property name="geometry">
       <rect>
-       <x>320</x>
+       <x>380</x>
        <y>40</y>
        <width>70</width>
        <height>23</height>
@@ -628,7 +628,7 @@
     <widget class="QPushButton" name="pushButtonDecryptKey">
      <property name="geometry">
       <rect>
-       <x>320</x>
+       <x>380</x>
        <y>10</y>
        <width>71</width>
        <height>23</height>
@@ -641,7 +641,7 @@
     <widget class="QPushButton" name="pushButtonSaveKey">
      <property name="geometry">
       <rect>
-       <x>250</x>
+       <x>310</x>
        <y>10</y>
        <width>60</width>
        <height>23</height>
@@ -689,7 +689,7 @@
     <widget class="QPushButton" name="pushButtonLoadKey">
      <property name="geometry">
       <rect>
-       <x>250</x>
+       <x>310</x>
        <y>40</y>
        <width>60</width>
        <height>23</height>
@@ -702,7 +702,7 @@
     <widget class="QPushButton" name="pushButtonTestKey">
      <property name="geometry">
       <rect>
-       <x>180</x>
+       <x>240</x>
        <y>10</y>
        <width>60</width>
        <height>23</height>
@@ -729,7 +729,7 @@
    <widget class="QPushButton" name="pushButtonSaveSettings">
     <property name="geometry">
      <rect>
-      <x>730</x>
+      <x>830</x>
       <y>10</y>
       <width>75</width>
       <height>23</height>
@@ -758,7 +758,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>807</width>
+     <width>919</width>
      <height>21</height>
     </rect>
    </property>
