@@ -21,6 +21,9 @@ Platforms for release binaries :
 Binary includes 
 - openssl library : https://www.openssl.org compiled by https://slproweb.com/products/Win32OpenSSL.html and https://indy.fulgan.com/SSL/
 
-
 Licence : GPL V3
+
+Main (and only !) window : 
+
+![MAIN](patrickpr.github.com/repository/img/main.jpg)
 
