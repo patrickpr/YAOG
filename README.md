@@ -23,6 +23,8 @@ Binary includes
 
 Licence : GPL V3
 
+(install / doc ![here](docs/01-installation.md)
+
 Main (and only !) window : 
 
 ![MAIN](img/main.jpg)
