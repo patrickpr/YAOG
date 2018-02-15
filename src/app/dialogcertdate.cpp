@@ -10,6 +10,7 @@ DialogCertDate::DialogCertDate(QWidget *parent) :
     this->ui->dateTimeEditStartDate->setDateTime(now);
     now=now.addDays(365);
     this->ui->dateTimeEditEndValid->setDateTime(now);
+
 }
 
 DialogCertDate::~DialogCertDate()

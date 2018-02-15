@@ -13,6 +13,8 @@
 #include <QDateTime>
 #include <QLayout>
 #include <QSettings>
+#include <QSslSocket>
+#include <QDebug>
 
 #include <QtNetwork>
 #include "sslcertificates.h"
@@ -20,9 +22,12 @@
 #include "dialogsslerrors.h"
 #include "dialogcertdate.h"
 #include "dialogx509v3extention.h"
+#include "cdialogpkcs12.h"
 
-#define YAOGVERSION "1.0"
+#define YAOGVERSION "1.0.1"
+#define YAOGVERSIONF "01000100"
 #define YAOGPLATFORM "W32"
+#define UPDATESRC "https://www.proy.org/yaog/update.php"
 
 #define PASSWORD_MAX_LENGTH 100
 #define MAX_CERT_SIZE 30000
@@ -65,6 +70,11 @@ public slots:
      * All parameters must be set before calling this
      */
     void create_csr_and_key();
+    /**
+     * @brief create_csr_from_key
+     * Key must be loaded into cert structure
+     */
+    void create_csr_from_key();
 
 signals:
     /**
@@ -176,6 +186,8 @@ private:
     void close_async_dialog();
     QTimer *timer; //!< used to read data in static function
 
+    // PKCS12 stuff
+    CDialogPKCS12* dlgP12;
     /**
      * @brief read_pem_to_openssl reads the key in window and puts it in openssl structure
      * Cert must be allocated
@@ -237,7 +249,8 @@ private:
 
     // network stuff for updates
     QNetworkAccessManager * network;
-    int checkUpdate; //!< 0: no check, 1 check updates, 2 unknown (ask)
+    int checkUpdate; //!< 0: no check, 1 check updates, 3 unknown (ask)
+    int checkUpdateNum; //!< number of times before warning user again about updates
     /**
      * @brief check_updates unless settings say no
      */
@@ -261,6 +274,9 @@ public slots:
     void DlgCertDateAccept(QDateTime startDate, QDateTime endDate);
     void add_extension(QString ext, QString value, bool critical);
 
+    void DlgPKCS12_Finished(bool Cancel, bool MainCertImport, int caCertImport);
+    void network_reply_finished(QNetworkReply* reply);
+    void network_reply_SSL_error(QNetworkReply* reply,QList<QSslError> SSLErr);
 private slots:
     void on_pushButtonGenerate_clicked();
 
@@ -302,15 +318,13 @@ private slots:
 
     void on_pushButtonSaveSettings_clicked();
 
-    void network_reply_finished(QNetworkReply* reply);
-
     void on_pushButtonLoadPKCS12_clicked();
 
 signals:
     //extension_button_del_on_clicked(int row);
-    add_text_output(QString);
-    finished_calc();
+    void add_text_output(QString);
+    void finished_calc();
 };
 
-
+#define USER_ALL_PASSWORDS_FOUND "nice" // you DID check this
 #endif // SSLMAINWINDOW_H

@@ -5,6 +5,11 @@ QString SSLMainWindow::CBdata="";
 QMutex SSLMainWindow::CBMutex;
 
 
+/**
+TODO
+ASSERT: "refCount.load() >= 0" in file thread\qmutex_p.h, line 101
+ */
+
 SSLWorker::SSLWorker(SSLCertificates* newcert)
 {
     this->Cert=newcert;
@@ -58,7 +63,7 @@ SSLMainWindow::SSLMainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::
 
     // Create Extension table
     this->ui->TWExtensions->setColumnCount(4);
-    this->ui->TWExtensions->setRowCount(1);
+    this->ui->TWExtensions->setRowCount(0);
     this->ui->TWExtensions->setColumnWidth(0,30);
     this->ui->TWExtensions->setColumnWidth(2,30);
     this->ui->TWExtensions->setHorizontalHeaderLabels(
@@ -121,7 +126,7 @@ void SSLMainWindow::addExtensionLine(extensionElmt *elmt)
 {
     int currentRow=this->ui->TWExtensions->rowCount();
     this->ui->TWExtensions->setRowCount(currentRow+1);
-    currentRow--;
+    //currentRow--;
     elmt->row=currentRow;
     // TODO : connect delete button to function.
     this->ui->TWExtensions->setCellWidget(currentRow,0,elmt->deleteBtnwdg);
@@ -198,7 +203,10 @@ void SSLMainWindow::flush_async_dialog()
     this->read_callback_data(); // finish reading pipe
     emit add_text_output("Waiting for process to finish...\n");
     //just in case, wait for everything to finish
-    this->SSLthread->wait(1000);
+    if (this->SSLthread != NULL)
+    {
+      this->SSLthread->wait(1000);
+    }
 }
 
 void SSLMainWindow::close_async_dialog() {
@@ -235,7 +243,6 @@ void SSLMainWindow::display_ssl_err(QString message)
     ErrDlg->exec();
     delete ErrDlg;
 }
-
 
 /*************************** Certificate buttons and utilities ************************/
 
@@ -352,14 +359,6 @@ void SSLMainWindow::on_pushButtonGenerateCert_clicked()
     /* First create cert object */
     this->init_cert();
 
-    // Set Key params
-    if (this->get_key_param()!=0)
-    {
-        QMessageBox::warning(this,tr("Error"),tr("Error in Key Param"));
-        delete this->Cert;
-        return;
-    }
-
     QString digest=this->ui->comboBoxCertDigest->currentText();
     if (this->Cert->set_digest(digest.toLatin1().data()) !=0)
     {
@@ -398,6 +397,13 @@ void SSLMainWindow::on_pushButtonGenerateCert_clicked()
     switch (this->ui->comboBoxCertGen->currentIndex())
     {
     case 0: //CSR + key
+        // Set Key params
+        if (this->get_key_param()!=0)
+        {
+            QMessageBox::warning(this,tr("Error"),tr("Error in Key Param"));
+            delete this->Cert;
+            return;
+        }
         // Create async dialog and worker
         this->create_async_dialog(tr("Certificate Request Generation"));
         // create connections and start thread
@@ -409,6 +415,13 @@ void SSLMainWindow::on_pushButtonGenerateCert_clicked()
 
         break;
     case 1: // Autosign+key
+        // Set Key params
+        if (this->get_key_param()!=0)
+        {
+            QMessageBox::warning(this,tr("Error"),tr("Error in Key Param"));
+            delete this->Cert;
+            return;
+        }
         // Ask for serial
         serial=QInputDialog::getText(this, tr("Serial"),
                                        tr("Serial number for cert (decimal):"), QLineEdit::Normal,
@@ -458,8 +471,28 @@ void SSLMainWindow::on_pushButtonGenerateCert_clicked()
         emit add_text_output(tr("Generating Certificate and key...\n"));
         break;
     case 2: // CSR (existing key)
-        QMessageBox::warning(this,tr("Error"),tr("Not implemented"));
-        delete this->Cert;
+        // read key from text input
+        switch (this->read_pem_to_openssl())
+        {
+        case 1: {
+            this->display_ssl_err(tr("Error parsing private key"));
+            delete this->Cert;
+            return;
+        }
+        case 2: // blame user for forgetting the password :-)
+            this->display_ssl_err(tr("Wrong password"));
+            delete this->Cert;
+            return;
+        }
+        // Create async dialog and worker
+        this->create_async_dialog(tr("CSR from key generation"));
+
+        // create connections and start thread
+        QObject::connect(this->SSLthread, SIGNAL(started()),     this->sslworker, SLOT(create_csr_from_key()));
+        QObject::connect(this->SSLthread, SIGNAL(finished()),    this, SLOT(DlgGenerateCSRFinished()));
+        SSLthread->start();
+
+        emit add_text_output(tr("Generating CSR from existing key...\n"));
         break;
     }
     return;
@@ -538,6 +571,16 @@ void SSLWorker::create_csr_and_key()
     emit finished();
 }
 
+void SSLWorker::create_csr_from_key()
+{
+    int retcode=this->Cert->create_csr();
+    if (retcode==1)
+    {
+       emit error("Error creating csr");
+    }
+    emit finished();
+}
+
 void SSLMainWindow::on_pushButtonTestKey_2_clicked()
 {
     // Init cert class
@@ -554,15 +597,15 @@ void SSLMainWindow::on_pushButtonTestKey_2_clicked()
     // Read key for GUI to openssl structure
     switch (this->read_pem_to_openssl())
     {
-    case 1: {
-        this->display_ssl_err(tr("Error parsing private key"));
-        delete this->Cert;
-        return;
-    }
-    case 2: //password error
-        this->display_ssl_err(tr("Error in password"));
-        delete this->Cert;
-        return;
+      case 1: {
+          this->display_ssl_err(tr("Error parsing private key"));
+          delete this->Cert;
+          return;
+      }
+      case 2: //password error
+          this->display_ssl_err(tr("Error in password"));
+          delete this->Cert;
+          return;
     }
     if (this->Cert->check_key()!=0)
     {
@@ -570,13 +613,26 @@ void SSLMainWindow::on_pushButtonTestKey_2_clicked()
         delete this->Cert;
         return;
     }
-    if (this->Cert->check_key_cert_match() !=0)
+    if (this->ui->radioButtonDisplayCSR->isChecked())
     {
-        this->display_ssl_err(tr("No match between cert and key"));
-        delete this->Cert;
-        return;
+      if (this->Cert->check_key_csr_match() !=0)
+      {
+          this->display_ssl_err(tr("No match between CSR and key"));
+          delete this->Cert;
+          return;
+      }
+      QMessageBox::information(this,tr("Valid"),tr("CSR and key match"));
     }
-    QMessageBox::information(this,tr("Valid"),tr("Certificate and key match"));
+    else
+    {
+      if (this->Cert->check_key_cert_match() !=0)
+      {
+          this->display_ssl_err(tr("No match between cert and key"));
+          delete this->Cert;
+          return;
+      }
+      QMessageBox::information(this,tr("Valid"),tr("Certificate and key match"));
+    }
     delete this->Cert;
 }
 
@@ -687,8 +743,8 @@ void SSLMainWindow::DlgGenerateCertFinished()
                     emit add_text_output(tr("Buffer too small (blame dev)"));
                     break;
                 case 3:
-                    emit add_text_output(tr("SSL Error writing cert to PEM"));
-                    this->display_ssl_err(tr("SSL Error writing cert to PEM"));
+                    emit add_text_output(tr("SSL Error displaying cert"));
+                    this->display_ssl_err(tr("SSL Error displaying cert"));
                     break;
                 }
             break;
@@ -711,8 +767,8 @@ void SSLMainWindow::DlgGenerateCertFinished()
         emit add_text_output(tr("Certificate : Buffer too small (blame dev)"));
         break;
     case 3:
-        emit add_text_output(tr("Certificate : SSL Error writing PEM"));
-        this->display_ssl_err(tr("Certificate : SSL Error writing PEM"));
+        emit add_text_output(tr("Certificate : SSL Error getting cert PEM"));
+        this->display_ssl_err(tr("Certificate : SSL Error getting cert PEM"));
         break;
     }
 
@@ -1083,8 +1139,8 @@ void SSLMainWindow::DisplayKey()
         this->display_ssl_err(tr("Error parsing private key"));
         return;
     }
-    case 2: //maybe blame user another time for forgetting the password :-) ?
-        this->display_ssl_err(tr("Error parsing private key"));
+    case 2: // blame user for forgetting the password :-)
+        this->display_ssl_err(tr("Wrong password"));
         return;
     }
 
@@ -1391,38 +1447,154 @@ void SSLMainWindow::on_pushButtonSave2p12_clicked() // TODO : finish this
         return;
     }
 
+    //QMessageBox::information(this,"Name",this->Cert->get_pkcs12_name());
+    dlgP12 = new CDialogPKCS12 (this->Cert,"",true,this);
+
+    QObject::connect(dlgP12, SIGNAL(DlgPKCS12_Finished(bool,bool,int)),
+                     this, SLOT(DlgPKCS12_Finished(bool,bool,int )));
+
+    dlgP12->show();
+
+    return;
+
+
+
+}
+
+void SSLMainWindow::on_pushButtonLoadPKCS12_clicked()
+{
+    int retcode;
+    // Init cert class
+    this->init_cert();
+
     // Get filename
-    QString filename=QFileDialog::getSaveFileName(this, "Export to pkcs12", "",
-                       tr("pkcs12 (*.p12);;Any (*.*)"));
+    QString filename=QFileDialog::getOpenFileName(this, "Load pkcs12", "",
+                       tr("pkcs12 (*.p12 *.pfx);;Any (*.*)"));
     if (filename=="")
     {
         delete this->Cert;
         return;
     }
-    /*
-    QFile file( filename );
-    if (! file.open( QIODevice::WriteOnly | QIODevice::Unbuffered))
-    {
-        QMessageBox::warning(this,tr("Error"),tr("Cannot write to file"));
-        return;
-    }
-    */
     FILE* file;
+    file=fopen(filename.toLocal8Bit().data(),"rb");
 
-    file=fopen(filename.toLocal8Bit().data(),"wb");
-    if (this->Cert->save_to_pkcs12(file) != 0)
-        QMessageBox::warning(this,tr("Error"),tr("Error saving file"));
-    else
-        QMessageBox::information(this,tr("Saved"),tr("File saved"));
+    if ((retcode=this->Cert->load_pkcs12(file,"")) != 0) // TODO : check what precise error generates pass failure
+    {
+        rewind(file);
+        bool ok=true;
+        QString password;
+        password=QInputDialog::getText(this, tr("Password for ")+filename,
+                                           tr("Password :"), QLineEdit::Password,
+                                           "", &ok);
+        if (!password.isEmpty() && ok)
+        {
+            if (password.toLatin1().size() > PASSWORD_MAX_LENGTH) exit (2);
+
+            retcode=this->Cert->load_pkcs12(file,password.toLatin1().data());
+        }
+        password="00000000000000";
+
+        if (retcode != 0)
+        {
+          switch (retcode)
+          {
+            case 1: this->display_ssl_err(tr("Error loading p12 file"));
+              break;
+            case 2: this->display_ssl_err(tr("Error parsing p12 file"));
+              break;
+            case 3: this->display_ssl_err(tr("Unsupported key type"));
+              break;
+          }
+          delete this->Cert;
+          fclose(file);
+          return;
+         }
+    }
 
     fclose(file);
+
+    //QMessageBox::information(this,"Name",this->Cert->get_pkcs12_name());
+    dlgP12 = new CDialogPKCS12 (this->Cert,filename,false,this);
+
+    QObject::connect(dlgP12, SIGNAL(DlgPKCS12_Finished(bool,bool,int)),
+                     this, SLOT(DlgPKCS12_Finished(bool,bool,int )));
+
+    dlgP12->show();
+
+    return;
+
 }
 
-void SSLMainWindow::on_pushButtonLoadPKCS12_clicked()
+void SSLMainWindow::DlgPKCS12_Finished(bool Cancel, bool MainCertImport, int caCertImport)
 {
-    QMessageBox::information(this,"Not yes","Not implemented yet","ok");
-}
+  int retcode;
+  if ( ! Cancel)
+  {
+    if (MainCertImport)
+    {
+      /** Get Certificate */
+      if ((retcode=this->Cert->get_cert_PEM(this->buffer,MAX_CERT_SIZE)) != 0)
+      {
+         switch(retcode)
+         {
+            case 1: this->display_ssl_err(tr("Certificate : Memory copy error in SSL"));
+             break;
+            case 2: this->display_ssl_err(tr("Buffer too small (blame dev)"));
+             break;
+            case 3: this->display_ssl_err(tr("Certificate : SSL Error writing PEM"));
+             break;
+         }
+      }
+      else
+      {
+        ui->textEditCert->setText(this->buffer);
+        ui->radioButtonDisplayCertificate->setChecked(true);
+        /** Get Key */
+        if ((retcode= this->Cert->get_key_PEM(this->buffer,MAX_CERT_SIZE)) != 0)
+        {
+           switch(retcode)
+           {
+              case 1: this->display_ssl_err(tr("Key : Memory copy error in SSL"));
+               break;
+              case 2: this->display_ssl_err(tr("Buffer too small (blame dev)"));
+               break;
+              case 3: this->display_ssl_err(tr("Key : SSL Error writing PEM"));
+               break;
+           }
+        }
+        else
+        {
+          ui->textEditKey->setText(this->buffer);
+        }
 
+      }
+    }
+    else
+    {
+      if ((retcode=this->Cert->get_pkcs12_certs_pem(caCertImport,this->buffer,MAX_CERT_SIZE)) != 0)
+      {
+         switch(retcode)
+         {
+            case 1: this->display_ssl_err(tr("Certificate : Memory copy error in SSL"));
+             break;
+            case 2: this->display_ssl_err(tr("Buffer too small (blame dev)"));
+             break;
+            case 3: this->display_ssl_err(tr("Certificate : SSL Error writing PEM"));
+             break;
+         }
+      }
+      else
+      {
+        ui->textEditCert->setText(this->buffer);
+        this->ui->radioButtonDisplayCertificate->setChecked(true);
+        ui->textEditKey->setText("");
+      }
+     }
+  }
+  delete this->Cert;
+  this->dlgP12->close();
+  this->dlgP12->deleteLater();
+}
 
 /************************ Settings ************************************************/
 
@@ -1462,6 +1634,7 @@ void SSLMainWindow::get_settings(QString setting)
 
     // Check for updates
     this->checkUpdate=settings.value("Global/checkupdate",3).toInt();
+    this->checkUpdateNum=settings.value("Global/checkupdate_num",0).toInt();
 }
 
 void SSLMainWindow::save_settings(QString setting)
@@ -1503,7 +1676,7 @@ void SSLMainWindow::check_updates()
     if (this->checkUpdate==3)
     {
         QMessageBox::StandardButton reply;
-        reply = QMessageBox::question(this, "Check for updates", "Do you want to check for updates at startup ?\nInformation sent is : version + platform",
+        reply = QMessageBox::question(this, tr("Check for updates"), tr("Do you want to check for updates at startup ?\nInformation sent is : version + platform"),
                                       QMessageBox::Yes|QMessageBox::No);
         QSettings settings("default.ini", QSettings::IniFormat, this);
         if (reply == QMessageBox::Yes) {
@@ -1518,18 +1691,38 @@ void SSLMainWindow::check_updates()
     network = new QNetworkAccessManager(this);
     connect(network, SIGNAL(finished(QNetworkReply*)),
             this, SLOT(network_reply_finished(QNetworkReply*)));
+    connect(network,SIGNAL(sslErrors(QNetworkReply*,QList<QSslError>)),
+            this,SLOT(network_reply_SSL_error(QNetworkReply*,QList<QSslError>)));
 
-    QUrl updateurl=QUrl("http://yaog.proy.org/update.php");
+    QUrl updateurl=QUrl(UPDATESRC);
 
     QUrlQuery postdata;
-    postdata.addQueryItem("version",YAOGVERSION);
+    // Why are you looking at this, you didn't trust the message box :-) ?
+    postdata.addQueryItem("secret",USER_ALL_PASSWORDS_FOUND);
+    postdata.addQueryItem("version",YAOGVERSIONF);
     postdata.addQueryItem("platform",YAOGPLATFORM);
 
     QNetworkRequest request=QNetworkRequest(updateurl);
+    QSslConfiguration sslconf(QSslConfiguration::defaultConfiguration());
+    request.setSslConfiguration(sslconf);
+
     request.setRawHeader("User-Agent", "YAOG Update 1.0");
     request.setHeader(QNetworkRequest::ContentTypeHeader,"application/x-www-form-urlencoded");
 
     network->post(request,postdata.toString(QUrl::FullyEncoded).toUtf8());
+}
+
+void SSLMainWindow::network_reply_SSL_error(QNetworkReply* reply,QList<QSslError> SSLErr)
+{
+  qDebug() << "SSL error";
+  int size=SSLErr.size();
+  while ( size>0)
+    {
+      qDebug() << SSLErr.at(size).errorString();
+      size--;
+    }
+  reply->deleteLater();
+  //TODO : do something.
 }
 
 void SSLMainWindow::network_reply_finished(QNetworkReply* reply) //TODO
@@ -1539,16 +1732,28 @@ void SSLMainWindow::network_reply_finished(QNetworkReply* reply) //TODO
     QByteArray bts = reply->readAll();
     QString str(bts);
     reply->deleteLater();
+    //QMessageBox::information(this,"Reply",str,"OK");
     if (ok.exactMatch(str))
     {
-        //QMessageBox::information(this,"Reply",str,"Up to date");
+        //QMessageBox::information(this,"Up to date",str,"OK");
         return;
     }
     if (update.exactMatch(str))
-    { // TODO : make update automatic
-        QMessageBox::information(this,"Update Available",str,"Up to date");
-        return;
+    { // TODO : download and update after user OK with it
+      if (this->checkUpdateNum == 0)
+      {
+        QMessageBox::information(this,"Update Available",str,"OK");
+        this->checkUpdateNum = 10;
+      }
+      else
+      {
+        this->checkUpdateNum--;
+      }
+      QSettings settings("default.ini", QSettings::IniFormat, this);
+      settings.setValue("Global/checkupdate_num",this->checkUpdateNum);
+      return;
     }
+    //QMessageBox::information(this,"Error update","returned : " + str);
     //TODO On all other errors, check last OK reply : if older than 1 month, alert user
     //For now, silently die (alone)
 }

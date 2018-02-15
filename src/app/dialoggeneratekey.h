@@ -13,7 +13,7 @@ class DialogGenerateKey : public QDialog
     Q_OBJECT
 
 public:
-    explicit DialogGenerateKey(QString title,QWidget *parent = 0);
+    explicit DialogGenerateKey(QString title="Output",QWidget *parent = 0);
     ~DialogGenerateKey();
 
 private:

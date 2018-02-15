@@ -1,7 +1,7 @@
 #include "dialoggeneratekey.h"
 #include "ui_dialoggeneratekey.h"
 
-DialogGenerateKey::DialogGenerateKey(QString title="Output", QWidget *parent) :
+DialogGenerateKey::DialogGenerateKey(QString title, QWidget *parent) :
     QDialog(parent),
     ui(new Ui::DialogGenerateKey)
 {
