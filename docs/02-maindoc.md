@@ -44,9 +44,9 @@ Key buttons
 
 * Save/load : Save/load on disk
 
-* Test : test if the key os correct (doesn't work for DSA)
+* Test : test if the key is correct (doesn't work for DSA)
 
-* Encrypt/Decrypt : the key and output result in PEM format. Cipher used is the one in the top "Key" group.
+* Encrypt/Decrypt : encrypt or decrypt the key and output result in PEM format. Cipher used is the one in the top "Key" group.
 
 PKCS12
 ------
