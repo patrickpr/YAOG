@@ -22,6 +22,9 @@ SSLWorker::~SSLWorker()
 
 SSLMainWindow::SSLMainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::SSLMainWindow)
 {
+    // Add icons and images
+    QIcon icon(":/icons/res/lock.ico");
+    this->setWindowIcon(icon);
     ui->setupUi(this);
     /* Set default params */
     ui->comboBoxKeySize->addItem("1024",1024);
