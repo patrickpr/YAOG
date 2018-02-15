@@ -16,7 +16,7 @@ The main window has all you need :
 Generate button
 ---------------
 
-![Gen](imggenerate.png)
+![Gen](img/generate.png)
 
 you can generate :
 
