@@ -1317,6 +1317,19 @@ int SSLCertificates::check_key() // TODO DSA and DH
     return 10;
 }
 
+int SSLCertificates::check_key_csr_match()
+{
+    if (this->check_key() != 0)
+        return 2;
+
+    int retcode = X509_REQ_verify(this->csr,this->pkey);
+    if (retcode == 1)
+    {
+      return 0;
+    }
+    return 1;
+}
+
 int SSLCertificates::check_key_cert_match()
 {
     if (this->check_key() != 0)

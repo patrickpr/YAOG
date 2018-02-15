@@ -80,6 +80,11 @@ public:
      * @return 0 on success 1 on no match, 2 on loading key/cert error
      */
     int check_key_cert_match();
+    /**
+     * @brief check_key_csr_match : check CSR/key match. Key & CSR already loaded
+     * @return 0 on success 1 on no match, 2 on loading key/cert error
+     */
+    int check_key_csr_match();
 
     int add_cert_object_byname(const char* label,const unsigned char* content);
     int set_object(const unsigned char* oCN, const unsigned char* oC, const unsigned char* oS,

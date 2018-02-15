@@ -70,6 +70,11 @@ public slots:
      * All parameters must be set before calling this
      */
     void create_csr_and_key();
+    /**
+     * @brief create_csr_from_key
+     * Key must be loaded into cert structure
+     */
+    void create_csr_from_key();
 
 signals:
     /**
