@@ -25,5 +25,5 @@ Licence : GPL V3
 
 Main (and only !) window : 
 
-![MAIN](patrickpr.github.com/repository/img/main.jpg)
+![MAIN](img/main.jpg)
 
