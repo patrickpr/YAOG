@@ -19,7 +19,9 @@ Platforms for release binaries :
 - I don't have any Mac for OSX release. 
 
 Binary includes 
-- openssl library : https://www.openssl.org compiled by https://slproweb.com/products/Win32OpenSSL.html and https://indy.fulgan.com/SSL/
+- openssl library : https://www.openssl.org 
+- compiled by me for version 1.1.1 (crypto operations)
+- and https://indy.fulgan.com/SSL/ for Qt SSL needing 1.0.2 (used for updates check). 
 
 Licence : GPL V3
 
