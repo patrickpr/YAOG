@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>999</width>
-    <height>589</height>
+    <width>1009</width>
+    <height>617</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -68,7 +68,7 @@
           <rect>
            <x>50</x>
            <y>170</y>
-           <width>69</width>
+           <width>101</width>
            <height>22</height>
           </rect>
          </property>
@@ -98,7 +98,7 @@
         <widget class="QLabel" name="labelDaysValid">
          <property name="geometry">
           <rect>
-           <x>140</x>
+           <x>170</x>
            <y>170</y>
            <width>71</width>
            <height>20</height>
@@ -111,7 +111,7 @@
         <widget class="QLineEdit" name="lineEditCertDays">
          <property name="geometry">
           <rect>
-           <x>230</x>
+           <x>260</x>
            <y>170</y>
            <width>41</width>
            <height>20</height>
@@ -124,7 +124,7 @@
         <widget class="QToolButton" name="toolButtonCertValidity">
          <property name="geometry">
           <rect>
-           <x>280</x>
+           <x>310</x>
            <y>170</y>
            <width>20</width>
            <height>19</height>
@@ -140,7 +140,7 @@
          </property>
          <property name="geometry">
           <rect>
-           <x>300</x>
+           <x>330</x>
            <y>170</y>
            <width>20</width>
            <height>20</height>
@@ -300,7 +300,7 @@
            <x>20</x>
            <y>30</y>
            <width>52</width>
-           <height>13</height>
+           <height>20</height>
           </rect>
          </property>
          <property name="sizePolicy">
@@ -349,7 +349,7 @@
             <widget class="QPushButton" name="pushButtonGenerate">
              <property name="geometry">
               <rect>
-               <x>160</x>
+               <x>210</x>
                <y>20</y>
                <width>110</width>
                <height>23</height>
@@ -403,7 +403,7 @@
               <rect>
                <x>70</x>
                <y>20</y>
-               <width>80</width>
+               <width>121</width>
                <height>22</height>
               </rect>
              </property>
@@ -426,7 +426,7 @@
               <rect>
                <x>70</x>
                <y>50</y>
-               <width>81</width>
+               <width>131</width>
                <height>20</height>
               </rect>
              </property>
@@ -475,7 +475,7 @@
             <widget class="QCheckBox" name="checkBoxKeyPassEnable">
              <property name="geometry">
               <rect>
-               <x>160</x>
+               <x>210</x>
                <y>50</y>
                <width>121</width>
                <height>20</height>
@@ -858,7 +858,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>999</width>
+     <width>1009</width>
      <height>21</height>
     </rect>
    </property>

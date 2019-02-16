@@ -85,9 +85,9 @@ SSLMainWindow::SSLMainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::
     QCoreApplication::setOrganizationDomain("");
     QCoreApplication::setApplicationName("YAOGApp");
 
-    this->get_settings("default");
+    this->get_settings("default");    
     this->check_updates();
-    srand (time(NULL));
+    srand (time(nullptr));
 }
 
 SSLMainWindow::extensionElmt *SSLMainWindow::addExtensionElmt(QString label,unsigned int NID,bool critical, QString value)
@@ -974,7 +974,7 @@ int SSLMainWindow::read_pem_to_openssl()
     // Read content of textEditKey and put it in a Qchar* array
     QByteArray QBskey=this->ui->textEditKey->toPlainText().toLocal8Bit();
 
-    retcode=this->Cert->set_key_PEM(QBskey.data(),NULL);
+    retcode=this->Cert->set_key_PEM(QBskey.data(),nullptr);
     switch (retcode)
     {
     case 0://OK
@@ -1691,6 +1691,7 @@ void SSLMainWindow::check_updates()
           return;
         }
     }
+    //qDebug() << QSslSocket::supportsSsl() << endl << QSslSocket::sslLibraryBuildVersionString() <<endl << QSslSocket::sslLibraryVersionString();
     network = new QNetworkAccessManager(this);
     connect(network, SIGNAL(finished(QNetworkReply*)),
             this, SLOT(network_reply_finished(QNetworkReply*)));
@@ -1708,6 +1709,9 @@ void SSLMainWindow::check_updates()
     QNetworkRequest request=QNetworkRequest(updateurl);
     QSslConfiguration sslconf(QSslConfiguration::defaultConfiguration());
     request.setSslConfiguration(sslconf);
+
+   // qDebug() << sslconf.->sslLibraryBuildVersionString()
+    //sslSocket->sslLibraryVersionString()
 
     request.setRawHeader("User-Agent", "YAOG Update 1.0");
     request.setHeader(QNetworkRequest::ContentTypeHeader,"application/x-www-form-urlencoded");
@@ -1734,8 +1738,9 @@ void SSLMainWindow::network_reply_finished(QNetworkReply* reply) //TODO
     QRegExp update("^UPDATE:.*");
     QByteArray bts = reply->readAll();
     QString str(bts);
+    //QMessageBox::information(this,"Reply","return  : "+str,"OK");
     reply->deleteLater();
-    //QMessageBox::information(this,"Reply",str,"OK");
+
     if (ok.exactMatch(str))
     {
         //QMessageBox::information(this,"Up to date",str,"OK");

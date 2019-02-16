@@ -24,10 +24,6 @@
 #define KeyDSA 2
 #define KeyEC 3
 
-#define KeyECprime256v1 1
-#define KeyECsecp384r1  2
-#define KeyECsecp224r1  3
-
 #define OPENSSL_BAD_PASSWORD_ERR 104
 #define OPENSSL_BAD_DECRYPT_ERR 100
 #define MAX_SSL_ERRORS 100  // max number of ssl errors to store
@@ -53,7 +49,7 @@ public:
      * @param ec : name of eliptic curve (list is keyECList) or NULL
      * @return  0 on success, 1 on error
      */
-    int set_key_params(unsigned int keyparam, int keytype, char*ec = NULL);
+    int set_key_params(unsigned int keyparam, int keytype, char*ec = nullptr);
     int create_key();
     int get_key_PEM(char* Skey,size_t maxlength);
     int get_key_HUM(char* Skey,size_t maxlength);
@@ -120,7 +116,7 @@ public:
      * @param cert : optional cert if not using internal one
      * @return 0: OK, 1: no CN/error
      */
-    int get_cert_CN(char* CN, size_t maxlength, X509 *cert=NULL);
+    int get_cert_CN(char* CN, size_t maxlength, X509 *cert=nullptr);
     /**
      * @brief set_cert_PEM : load cert in skey in openssl structure
      * @param Skey
@@ -128,7 +124,7 @@ public:
      * @return 0: sucess, 1 : reading cert, 2: maxlength too small, 3: error getting cert
      * check ssl errors
      */
-    int set_cert_PEM(const char* Skey, const char *password=NULL);
+    int set_cert_PEM(const char* Skey, const char *password=nullptr);
     /**
      * @brief save_to_pkcs12 : save cert and key to pkcs12 file
      * @param file : opened file descriptor
@@ -229,15 +225,23 @@ public:
     int SSLError; //!< set to 1 if at least one SSL error raised. reset with empty_ssl_errors (but not with print_ssl_errors)
 
     // Not static const as cipher/ec list might be read from openssl in next releases.
-    char digestsList[10][10] = { "sha256","sha1","md5"};//!< list of digests
-    int digestsListNum=3;//!< number of digests
-    char ciphersList[10][10] = { "aes256","des3","des"};//!< list of ciphers
-    int ciphersListNum=2;//!< number ciphers
-    char keyTypeList[10][10] = { "rsa","dsa","ec"};//!< list of key types
+    char digestsList[10][10] = { "sha256","sha512","sha3-256","sha3-512","shake256","sha1","md5"};//!< list of digests
+    int digestsListNum=7;//!< number of digests
+    char ciphersList[10][10] = { "aes256","des3","idea","des"};//!< list of ciphers
+    int ciphersListNum=4;//!< number ciphers
+    char keyTypeList[10][10] = { "rsa","dsa","ec"}; //!< list of key types
     int keyTypeListNum=3;//!< number of key types
-    char keyECList[10][20] = { "prime256v1","secp384r1","secp224r1"};//!< list of ec types
-    int keyECListNIDCode[10] = {NID_X9_62_prime256v1, NID_secp384r1, NID_secp224r1};//!< values of ec types (see obj_mach.h for full list)
-    int keyECListNum=3;//!< number of keyECList/keyECListNIDCode
+    char keyECList[20][50] = {
+        "prime239v3","prime256v1",
+        "secp224r1","secp384r1","secp521r1",
+        "sect409k1","sect409r1","sect571k1","sect571r1",
+        "wap-wsg-idm-ecid-wtls10","wap-wsg-idm-ecid-wtls11"}; //!< list of ec types
+    int keyECListNIDCode[20] = {
+        NID_X9_62_prime239v3 ,NID_X9_62_prime256v1,
+        NID_secp224r1,NID_secp384r1,NID_secp521r1,
+        NID_sect409k1,NID_sect409r1,NID_sect571k1,NID_sect571r1,
+        NID_wap_wsg_idm_ecid_wtls10,NID_wap_wsg_idm_ecid_wtls11}; //!< values of ec types (see obj_mach.h for full list)
+    int keyECListNum=11;//!< number of keyECList/keyECListNIDCode
 
     /**
      * @brief set_digest : set digest for X509 cert signature

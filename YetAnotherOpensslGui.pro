@@ -1,7 +1,7 @@
 #-------------------------------------------------
 #   Project : Yet Another OpenSSL GUI
 #   Author : Patrick Proy
-#   Copyright (C) 2018
+#   Copyright (C) 2018-2019
 #
 #   Licence : http://www.gnu.org/licenses/gpl.txt
 #
@@ -38,11 +38,17 @@ FORMS    += src/app/sslmainwindow.ui \
             src/app/dialogx509v3extention.ui \
             src/app/cdialogpkcs12.ui
 
-LIBS += -L"src/openssl/lib/MinGW"
-LIBS += "src/openssl/lib/MinGW/libssl-1_1.a" "src/openssl/lib/MinGW/libcrypto-1_1.a"# -lssl -lcrypto"
+#LIBS += -L"src/openssl/lib/MinGW"
+#LIBS += "src/openssl/lib/MinGW/libssl-1_1.a" "src/openssl/lib/MinGW/libcrypto-1_1.a"# -lssl -lcrypto"
+
+LIBS += -L"src/openssl/lib/VC"
+LIBS += $$PWD/src/openssl/lib/VC/libssl.lib  $$PWD/src/openssl/lib/VC/libcrypto.lib
 
 #LIBS += -L"D:\apps\Dev\OpenSSL-Win32_1.0.2\lib\MinGW" -leay32 -lssleay32
 #OPENSSL_LIBS=' -lssl -lcrypto'
 
 INCLUDEPATH += "src/openssl/include"
 #INCLUDEPATH += "D:\apps\Dev\OpenSSL-Win32_1.0.2\include"
+
+RESOURCES += \
+    src/app/ressources.qrc

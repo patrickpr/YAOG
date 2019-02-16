@@ -24,8 +24,8 @@
 #include "dialogx509v3extention.h"
 #include "cdialogpkcs12.h"
 
-#define YAOGVERSION "1.0.1"
-#define YAOGVERSIONF "01000100"
+#define YAOGVERSION "1.0.2"
+#define YAOGVERSIONF "01000200"
 #define YAOGPLATFORM "W32"
 #define UPDATESRC "https://www.proy.org/yaog/update.php"
 
