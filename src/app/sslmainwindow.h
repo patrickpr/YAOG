@@ -23,6 +23,7 @@
 #include "dialogcertdate.h"
 #include "dialogx509v3extention.h"
 #include "cdialogpkcs12.h"
+#include "stackwindow.h"
 
 #define YAOGVERSION "1.0.2"
 #define YAOGVERSIONF "01000200"
@@ -90,13 +91,6 @@ private:
     SSLCertificates* Cert;
 };
 
-// TODO : use this as a stack for cert/keys, etc...
-typedef struct CertData {
-    QString key;
-    QString certificate;
-    QString CSR;
-    QString name;
-} CertData;
 
 /**
  * @brief The SSLMainWindow class
@@ -107,7 +101,7 @@ class SSLMainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    explicit SSLMainWindow(QWidget *parent = 0);
+    explicit SSLMainWindow(QWidget *parent = nullptr);
     ~SSLMainWindow();
     /**
      * @brief Output buffer of openssl callback
@@ -121,15 +115,20 @@ public:
      * @brief Add data to CBdata using CBMutex
      * @param String to add
      */
-    static void CB_add_data(char* data);
+    static void CB_add_data(const char *data);
     /**
      * @brief Read and erase existing string in buffer CBdata
      * @return message from openssl
      */
     static QString CB_read_data();
 
-    // For future use
-    QList<struct Certdata *> CertificateList;
+    // For stack import
+
+    /**
+     * @brief Import key
+     * @param key QString : key in pem format
+     */
+    void import_key(QString key);
 
     typedef struct extensionElmt {
         QPushButton * deleteBtn;        //!< Display widget
@@ -173,9 +172,15 @@ private:
     // Certificate stuff
     SSLCertificates *Cert;
     void init_cert(); //!< creates a new cert and catches errors.
+    SSLCertificates* getCert(); //!< create if null and returns Cert
+    void deleteCert(); //!< delete Cert object and set to nullptr
+
     int cert_output_type; //!< PEM in textDisplay is cert/csr...
     QDateTime CertStartDate; //!< Certificate start date
     QDateTime CertEndDate; //!< Certificate end date
+
+    // Certificate stack
+    CStackWindow * stackWindow;
 
     // Key and cert generation thread and display
     DialogGenerateKey* DlgGenerateKey;
@@ -226,8 +231,9 @@ private:
     void DisplayCert();
     /**
      * @brief display_key_type in current Cert structure on labelDisplayKeyType.
+     * @return QString key name;
      */
-    void display_key_type();
+    QString display_key_type();
     /**
      * @brief get_key_param : get key type and param (size, etc...) and put it in this->cert param
      * @return 0 on success, 1 on error (ex : ec of wrong type, etc...)
@@ -277,6 +283,13 @@ public slots:
     void DlgPKCS12_Finished(bool Cancel, bool MainCertImport, int caCertImport);
     void network_reply_finished(QNetworkReply* reply);
     void network_reply_SSL_error(QNetworkReply* reply,QList<QSslError> SSLErr);
+    /**
+     * @brief Import certificate
+     * @param certificate CertData
+     */
+    void import_cert_key(CStackWindow::CertData certificate);
+
+
 private slots:
     void on_pushButtonGenerate_clicked();
 
@@ -319,6 +332,10 @@ private slots:
     void on_pushButtonSaveSettings_clicked();
 
     void on_pushButtonLoadPKCS12_clicked();
+
+    void on_pushButtonOpenStack_clicked();
+
+    void on_pushButtonPushCert_clicked();
 
 signals:
     //extension_button_del_on_clicked(int row);

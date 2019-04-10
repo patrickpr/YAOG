@@ -1,6 +1,8 @@
 #ifndef SSLCERTIFICATES_H
 #define SSLCERTIFICATES_H
 
+#include <QDebug>
+
 #include <openssl/pem.h>
 #include <openssl/conf.h>
 #include <openssl/x509v3.h>
@@ -27,6 +29,7 @@
 #define OPENSSL_BAD_PASSWORD_ERR 104
 #define OPENSSL_BAD_DECRYPT_ERR 100
 #define MAX_SSL_ERRORS 100  // max number of ssl errors to store
+#define MAX_SSL_ERRORS_BUF_SIZE 2000
 
 typedef struct X509_name_st X509_NAME2; // To bypass wincrypt definition.
 
@@ -82,10 +85,10 @@ public:
      */
     int check_key_csr_match();
 
-    int add_cert_object_byname(const char* label,const unsigned char* content);
-    int set_object(const unsigned char* oCN, const unsigned char* oC, const unsigned char* oS,
-                   const unsigned char* oL, const unsigned char* oO, const unsigned char* oOU,
-                   const unsigned char *omail);
+    int add_cert_object_byname(const char* label, const char *content);
+    int set_object(const char* oCN, const char* oC, const char* oS,
+                   const char* oL, const char* oO, const char* oOU,
+                   const char *omail);
     /**
      * @brief create_cert
      * @return 0: success, 1: SSL error, 2: certificate validity error
@@ -100,7 +103,7 @@ public:
      * @return 0: sucess, 1 : error copying, 2: maxlength too small, 3: error getting cert (note return of get_pkcs12_certs_pem)
      * check ssl errors
      */
-    int get_cert_PEM(char* Skey,size_t maxlength,X509* locX509=NULL);
+    int get_cert_PEM(char* Skey,size_t maxlength,X509* locX509=nullptr);
     /**
      * @brief get_cert_HUM : put cert as text human readeable
      * @param Skey
@@ -110,6 +113,14 @@ public:
      */
     int get_cert_HUM(char* Skey,size_t maxlength);
     /**
+     * @brief get_CN_from_name
+     * @param char * CN
+     * @param size_t maxlength
+     * @param  X509_NAME_st* certname
+     * @return 0 = OK, 2 overflow, 1 error.
+     */
+    int get_CN_from_name(char* CN,size_t maxlength, X509_NAME2* certname);
+    /**
      * @brief get_cert_CN : get CN of certificate (copy of openssl wiki)
      * @param CN : CN of certificate
      * @param maxlength : max length of CN
@@ -117,6 +128,14 @@ public:
      * @return 0: OK, 1: no CN/error
      */
     int get_cert_CN(char* CN, size_t maxlength, X509 *cert=nullptr);
+    /**
+     * @brief get_csr_CN : get CN of csr
+     * @param CN : CN of csr
+     * @param maxlength : max length of CN
+     * @param cert : optional csr if not using internal one
+     * @return 0: OK, 1: no CN/error
+     */
+    int get_csr_CN(char* CN,size_t maxlength, X509_REQ* csr=nullptr);
     /**
      * @brief set_cert_PEM : load cert in skey in openssl structure
      * @param Skey
@@ -210,7 +229,7 @@ public:
      */
     int set_csr_PEM(const char* Skey, char* password);
 
-    void set_display_callback(void(*callback)(char*));
+    void set_display_callback(void(*callback)(const char*));
     void clear_display_callback();
 
     static int abortnow; //!< static var to abort key generation when set to 1
@@ -258,9 +277,10 @@ public:
     /**
      * @brief get_key_type : get string type of current loaded key in EVP
      * @param keytype : key name or "Unknown"
+     * @param size : size of char*
      * @return 0 on success, 1 if unknown
      */
-    int get_key_type(char* keytype);
+    int get_key_type(char* keytype, unsigned int size);
     /**
      * @brief set_X509_validity : set start and end date for X509
      * @param start : start date (YYYYMMDDHHMMSS)
@@ -307,10 +327,10 @@ private:
 
     EVP_MD* useDigest; //!< Digest to use
     EVP_CIPHER* useCipher; //!< Cypher to use
-    int keyLength;//!< RSA/DSA key length
+    unsigned int keyLength;//!< RSA/DSA key length
     int keyType;//!< RSA/DSA/EC type (see macro KeyRSA, KeyDSA, KeyEC)
     int keyECType;//!< Elliptic curve type by NID
-    static void(*output_display)(char*);//!< Called function to display messages when calculating keys
+    static void(*output_display)(const char*);//!< Called function to display messages when calculating keys
 
 /* X509 subject and other options */
     char* subject_id[100]; //! < Subject id list (ex : CN, O, L...)
@@ -362,8 +382,8 @@ private:
     char* bio_buf_error; // TODO SEE if needed (see above)
 
     int mkcert(X509 **x509p, EVP_PKEY **pkeyp, int bits, int serial, int days);
-    int add_ext(X509 *cert, int nid, char *value);
-    int add_ext_bytxt(X509 *cert, char* nid, char *value);
+    int add_ext(X509 *cert, int nid, const char *value);
+    int add_ext_bytxt(X509 *cert, const char *nid, const char *value);
 
 };
 

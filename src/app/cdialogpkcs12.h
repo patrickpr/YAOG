@@ -17,7 +17,7 @@ class CDialogPKCS12 : public QDialog
   Q_OBJECT
 
 public:
-  explicit CDialogPKCS12( SSLCertificates * Certificate, QString Filename, bool write, QWidget *parent = 0);
+  explicit CDialogPKCS12( SSLCertificates * Certificate, QString Filename, bool write, QWidget *parent = nullptr);
   ~CDialogPKCS12();
 
 private:

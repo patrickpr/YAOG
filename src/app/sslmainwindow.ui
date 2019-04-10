@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1009</width>
+    <width>1000</width>
     <height>617</height>
    </rect>
   </property>
@@ -503,6 +503,20 @@
              </widget>
             </item>
             <item>
+             <widget class="QPushButton" name="pushButtonPushCert">
+              <property name="text">
+               <string>Push cert</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="pushButtonOpenStack">
+              <property name="text">
+               <string>Open Stack</string>
+              </property>
+             </widget>
+            </item>
+            <item>
              <spacer name="verticalSpacer">
               <property name="orientation">
                <enum>Qt::Vertical</enum>
@@ -858,7 +872,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1009</width>
+     <width>1000</width>
      <height>21</height>
     </rect>
    </property>

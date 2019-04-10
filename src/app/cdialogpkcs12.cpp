@@ -12,8 +12,8 @@ CDialogPKCS12::CDialogPKCS12(SSLCertificates *Certificate, QString Filename, boo
   this->isWrite=write;
 
   QString value;
-  char * certCN=(char*)malloc(sizeof(char)*500);
-  if (certCN==NULL)
+  char * certCN=static_cast<char *>(malloc(sizeof(char)*500));
+  if (certCN==nullptr)
     {
       ui->lineEditCertificate->setText("MEMORY ERROR!!");
       return;
@@ -43,7 +43,7 @@ CDialogPKCS12::CDialogPKCS12(SSLCertificates *Certificate, QString Filename, boo
 
      for (int i=0;i<cert->get_pkcs12_certs_num();i++)
      {
-       std::string cn=cert->get_pkcs12_certs_CN(i);
+       std::string cn=cert->get_pkcs12_certs_CN(static_cast<unsigned int>(i));
        QListWidgetItem *line=new QListWidgetItem(QString::fromStdString(cn));
        ui->listWidgetCA->addItem(line);
      }
@@ -120,17 +120,24 @@ void CDialogPKCS12::on_pushButtonImportCert_clicked()
 
 void CDialogPKCS12::on_pushButtonSaveAs_clicked()
 {
-  // Get filename
-  QString filename=QFileDialog::getSaveFileName(this, "Export to pkcs12", "",
-                     tr("pkcs12 (*.p12);;Any (*.*)"));
-  if (filename=="")
-  {
-      return;
-  }
-
+  QString filename;
   FILE* file;
-
-  file=fopen(filename.toLocal8Bit().data(),"wb");
+  int fileOpen;
+  do
+  {
+    // Get filename
+    filename=QFileDialog::getSaveFileName(this, "Export to pkcs12", "",
+                       tr("pkcs12 (*.p12);;Any (*.*)"));
+    if (filename=="")
+    {
+        return;
+    }
+    if ( (fileOpen=fopen_s(&file,filename.toLocal8Bit().data(),"wb")) != 0)
+    {
+        QMessageBox::warning(this,tr("Error opening file"),tr("Cannot open file : ")+filename);
+    }
+  }
+  while( fileOpen != 0);
 
   QString name=ui->lineEditFriendlyName->text();
   QString pass=ui->lineEditPassword->text();

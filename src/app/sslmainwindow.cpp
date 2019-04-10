@@ -36,12 +36,6 @@ SSLMainWindow::SSLMainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::
     ui->comboBoxCertGen->addItem(tr("Autosign + key"),2);
     ui->comboBoxCertGen->addItem(tr("CSR (existing key)"),3);
 
-    // Initialise the CertificateList QList
-    CertData* current=new CertData;
-    current->certificate=current->CSR=current->key="";
-    current->name="Default";
-    //this->CertificateList.append(current);
-
     //SSLMainWindow::CBMutex.unlock(); // Hope there is only one instance of SSLMainWindow....
     SSLMainWindow::CBdata="";
 
@@ -51,17 +45,17 @@ SSLMainWindow::SSLMainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::
 
     // Get SSL digests, ciphers,etc...
     this->init_cert();
-    for (int i=0; i< this->Cert->digestsListNum;i++)
+    for (int i=0; i< this->getCert()->digestsListNum;i++)
     {
-        ui->comboBoxCertDigest->addItem(this->Cert->digestsList[i],i);
+        ui->comboBoxCertDigest->addItem(this->getCert()->digestsList[i],i);
     }
-    for (int i=0; i< this->Cert->ciphersListNum;i++)
+    for (int i=0; i< this->getCert()->ciphersListNum;i++)
     {
-        ui->comboBoxKeyCipher->addItem(this->Cert->ciphersList[i],i);
+        ui->comboBoxKeyCipher->addItem(this->getCert()->ciphersList[i],i);
     }
-    for (int i=0; i< this->Cert->keyTypeListNum;i++)
+    for (int i=0; i< this->getCert()->keyTypeListNum;i++)
     {
-        ui->comboBoxKeyType->addItem(this->Cert->keyTypeList[i],i);
+        ui->comboBoxKeyType->addItem(this->getCert()->keyTypeList[i],i);
     }
 
     // Create Extension table
@@ -79,6 +73,10 @@ SSLMainWindow::SSLMainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::
 
     //extensionElmt *basic=this->addExtensionElmt("basicConstraints",87,false,"CA:FALSE");
     //addExtensionLine(basic);
+    /* Create stack dialog and stack */
+    this->stackWindow = new CStackWindow(this);
+    // for certificate push from stack
+    QObject::connect(this->stackWindow,SIGNAL(pop_certificate(CStackWindow::CertData)),this,SLOT(import_cert_key(CStackWindow::CertData)));
 
     /* Load settings */
     QCoreApplication::setOrganizationName("YAOG");
@@ -87,7 +85,7 @@ SSLMainWindow::SSLMainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::
 
     this->get_settings("default");    
     this->check_updates();
-    srand (time(nullptr));
+    srand (static_cast<unsigned int>(time(nullptr)));
 }
 
 SSLMainWindow::extensionElmt *SSLMainWindow::addExtensionElmt(QString label,unsigned int NID,bool critical, QString value)
@@ -149,7 +147,7 @@ SSLMainWindow::~SSLMainWindow()
     delete ui;
 }
 
-void SSLMainWindow::CB_add_data(char* data) {
+void SSLMainWindow::CB_add_data(const char* data) {
     //qDebug("addind data");
     SSLMainWindow::CBMutex.lock();
     SSLMainWindow::CBdata+=data;
@@ -184,7 +182,7 @@ void SSLMainWindow::create_async_dialog(QString title)
                      this, SLOT(DlgGenerateKeyAbort()));
 
     // Set callback
-    this->Cert->set_display_callback(&SSLMainWindow::CB_add_data);
+    this->getCert()->set_display_callback(&SSLMainWindow::CB_add_data);
     // Set timer to check Callback data
     this->timer=new QTimer(this);
     connect(this->timer, SIGNAL(timeout()), this, SLOT(read_callback_data()));
@@ -192,7 +190,7 @@ void SSLMainWindow::create_async_dialog(QString title)
 
     // Create worker thread
     this->SSLthread = new QThread(this);
-    this->sslworker = new SSLWorker(this->Cert);
+    this->sslworker = new SSLWorker(this->getCert());
     this->sslworker->moveToThread(SSLthread);
     QObject::connect(this->sslworker, SIGNAL(error(QString)), this, SLOT(DlgGenerateKeyError(QString)));
     QObject::connect(this->sslworker, SIGNAL(finished()),    this->SSLthread, SLOT(quit()));
@@ -206,7 +204,7 @@ void SSLMainWindow::flush_async_dialog()
     this->read_callback_data(); // finish reading pipe
     emit add_text_output("Waiting for process to finish...\n");
     //just in case, wait for everything to finish
-    if (this->SSLthread != NULL)
+    if (this->SSLthread != nullptr)
     {
       this->SSLthread->wait(1000);
     }
@@ -224,6 +222,23 @@ void SSLMainWindow::read_callback_data() {
     }
 }
 
+SSLCertificates* SSLMainWindow::getCert()
+{
+  if (this->Cert == nullptr)
+  {
+    QMessageBox::warning(this,"Soft Error","Calling certificate but not initialised");
+    this->init_cert();
+  }
+  return this->Cert;
+}
+
+void SSLMainWindow::deleteCert()
+{
+  if (this->Cert == nullptr) return;
+  delete this->Cert;
+  this->Cert=nullptr;
+}
+
 void SSLMainWindow::init_cert()
 {
     try { this->Cert=new SSLCertificates(); }
@@ -231,7 +246,8 @@ void SSLMainWindow::init_cert()
     {
         QMessageBox msgBox;
         if (e==10)  msgBox.setText("Error initializing key(s) : program will end");
-        if (e==20)  msgBox.setText("Error initializing certificate : program will end");
+        else if (e==20)  msgBox.setText("Error initializing certificate : program will end");
+        else msgBox.setText("Error in SSLCertificate : "+QString::number(e));
         msgBox.exec();
         exit(1);
     }
@@ -240,7 +256,7 @@ void SSLMainWindow::init_cert()
 void SSLMainWindow::display_ssl_err(QString message)
 {
     char ErrorMsg[2000];
-    this->Cert->print_ssl_errors(ErrorMsg,2000);
+    this->getCert()->print_ssl_errors(ErrorMsg,2000);
     DialogSSLErrors * ErrDlg=new DialogSSLErrors (message,ErrorMsg,this);
     ErrDlg->setModal(true);
     ErrDlg->exec();
@@ -280,9 +296,9 @@ int SSLMainWindow::read_cert_pem_to_openssl()
 
     // Put the cert/csr in openssl structure
     if ( this->ui->radioButtonDisplayCertificate->isChecked() )
-        retcode=this->Cert->set_cert_PEM(QBskey.data(),NULL);
+        retcode=this->getCert()->set_cert_PEM(QBskey.data(),nullptr);
     if (this->ui->radioButtonDisplayCSR->isChecked())
-        retcode=this->Cert->set_csr_PEM(QBskey.data(),NULL);
+        retcode=this->getCert()->set_csr_PEM(QBskey.data(),nullptr);
     if (retcode==1) // Error parsing cert
     {
         return 1;
@@ -299,9 +315,9 @@ int SSLMainWindow::read_cert_pem_to_openssl()
             if (password.toLatin1().size() > PASSWORD_MAX_LENGTH) exit (2);
 
             if ( this->ui->radioButtonDisplayCertificate->isChecked() )
-                retcode=this->Cert->set_cert_PEM(QBskey.data(),password.toLocal8Bit().data());
+                retcode=this->getCert()->set_cert_PEM(QBskey.data(),password.toLocal8Bit().data());
             if (this->ui->radioButtonDisplayCSR->isChecked())
-                retcode=this->Cert->set_csr_PEM(QBskey.data(),password.toLocal8Bit().data());
+                retcode=this->getCert()->set_csr_PEM(QBskey.data(),password.toLocal8Bit().data());
         }
         password="00000000000000";
         if (retcode!=0)// User cancel / empty pass / wrong pass
@@ -327,9 +343,9 @@ void SSLMainWindow::DisplayCert()
 
     // Read cert from openssl strcture to human readable format.
     if ( this->ui->radioButtonDisplayCertificate->isChecked() )
-        retcode=this->Cert->get_cert_HUM(this->buffer,MAX_CERT_SIZE);
+        retcode=this->getCert()->get_cert_HUM(this->buffer,MAX_CERT_SIZE);
     if (this->ui->radioButtonDisplayCSR->isChecked())
-        retcode=this->Cert->get_csr_HUM(this->buffer,MAX_CERT_SIZE);
+        retcode=this->getCert()->get_csr_HUM(this->buffer,MAX_CERT_SIZE);
     switch (retcode)
     {
     case 1:
@@ -363,24 +379,24 @@ void SSLMainWindow::on_pushButtonGenerateCert_clicked()
     this->init_cert();
 
     QString digest=this->ui->comboBoxCertDigest->currentText();
-    if (this->Cert->set_digest(digest.toLatin1().data()) !=0)
+    if (this->getCert()->set_digest(digest.toLatin1().data()) !=0)
     {
         this->display_ssl_err(tr("Unknown Digest"));
-        delete this->Cert;
+        this->deleteCert();
         return;
     }
-    if (this->Cert->set_object(
-                (unsigned const char*)this->ui->lineEditCertCN->text().toLatin1().data(),
-                (unsigned const char*)this->ui->lineEditCertC->text().toLatin1().data(),
-                (unsigned const char*)this->ui->lineEditCertS->text().toLatin1().data(),
-                (unsigned const char*)this->ui->lineEditCertL->text().toLatin1().data(),
-                (unsigned const char*)this->ui->lineEditCertO->text().toLatin1().data(),
-                (unsigned const char*)this->ui->lineEditCertOU->text().toLatin1().data(),
-                (unsigned const char*)this->ui->lineEditCertEmail->text().toLatin1().data()
+    if (this->getCert()->set_object(
+                this->ui->lineEditCertCN->text().toLatin1().data(),
+                this->ui->lineEditCertC->text().toLatin1().data(),
+                this->ui->lineEditCertS->text().toLatin1().data(),
+                this->ui->lineEditCertL->text().toLatin1().data(),
+                this->ui->lineEditCertO->text().toLatin1().data(),
+                this->ui->lineEditCertOU->text().toLatin1().data(),
+                this->ui->lineEditCertEmail->text().toLatin1().data()
         ) != 0 )
     {
         this->display_ssl_err(tr("Error in subject"));
-        delete this->Cert;
+        this->deleteCert();
         return;
     }
 
@@ -389,10 +405,10 @@ void SSLMainWindow::on_pushButtonGenerateCert_clicked()
         std::string label=this->extensionList.at(i)->label.toLocal8Bit().data();
         std::string value=this->extensionList.at(i)->value->text().toLocal8Bit().data();
         int crit=(this->extensionList.at(i)->critical->isChecked())?1:0;
-        if (this->Cert->x509_extension_add(label,value,crit) != 0)
+        if (this->getCert()->x509_extension_add(label,value,crit) != 0)
         {
             this->display_ssl_err(tr("Error in extension: ")+label.data());
-            delete this->Cert;
+            this->deleteCert();
             return;
         }
     }
@@ -404,7 +420,7 @@ void SSLMainWindow::on_pushButtonGenerateCert_clicked()
         if (this->get_key_param()!=0)
         {
             QMessageBox::warning(this,tr("Error"),tr("Error in Key Param"));
-            delete this->Cert;
+            this->deleteCert();
             return;
         }
         // Create async dialog and worker
@@ -422,7 +438,7 @@ void SSLMainWindow::on_pushButtonGenerateCert_clicked()
         if (this->get_key_param()!=0)
         {
             QMessageBox::warning(this,tr("Error"),tr("Error in Key Param"));
-            delete this->Cert;
+            this->deleteCert();
             return;
         }
         // Ask for serial
@@ -431,17 +447,17 @@ void SSLMainWindow::on_pushButtonGenerateCert_clicked()
                                        QString::number(rand()%100+1), &ok);
         if (serial.isEmpty() || !ok)
         {
-            delete this->Cert;
+            this->deleteCert();
             return;
         }
         serialnum=serial.toUInt(&ok,10);
         if (!ok)
         {
             QMessageBox::warning(this,tr("Error"),tr("Invalid serial"));
-            delete this->Cert;
+            this->deleteCert();
             return;
         }
-        this->Cert->set_X509_serial(serialnum);
+        this->getCert()->set_X509_serial(serialnum);
         // Set start & end date
         if (this->ui->lineEditCertDays->isEnabled())
         {   // Line is enabled, take number of days.
@@ -450,17 +466,17 @@ void SSLMainWindow::on_pushButtonGenerateCert_clicked()
             if (!ok)
             {
                 QMessageBox::warning(this,tr("Error"),tr("Invalid number of days"));
-                delete this->Cert;
+                this->deleteCert();
                 return;
             }
             this->CertEndDate=this->CertStartDate.addDays(serialnum);
         }
-        if (this->Cert->set_X509_validity(
+        if (this->getCert()->set_X509_validity(
                     this->CertStartDate.toString("yyyyMMddHHmmssZ").toLocal8Bit().data(),
                     this->CertEndDate.toString("yyyyMMddHHmmssZ").toLocal8Bit().data())!=0)
         {
             QMessageBox::warning(this,tr("Error"),tr("Invalid start/end"));
-            delete this->Cert;
+            this->deleteCert();
             return;
         }
         // Create async dialog and worker
@@ -479,12 +495,12 @@ void SSLMainWindow::on_pushButtonGenerateCert_clicked()
         {
         case 1: {
             this->display_ssl_err(tr("Error parsing private key"));
-            delete this->Cert;
+            this->deleteCert();
             return;
         }
         case 2: // blame user for forgetting the password :-)
             this->display_ssl_err(tr("Wrong password"));
-            delete this->Cert;
+            this->deleteCert();
             return;
         }
         // Create async dialog and worker
@@ -512,7 +528,7 @@ void SSLMainWindow::on_pushButtonDisplayCert_clicked()
     // Do the display
     this->DisplayCert();
     // Cleanup
-    delete this->Cert;
+    this->deleteCert();
     this->ui->pushButtonDisplayCert->setEnabled(true);
 }
 
@@ -602,41 +618,41 @@ void SSLMainWindow::on_pushButtonTestKey_2_clicked()
     {
       case 1: {
           this->display_ssl_err(tr("Error parsing private key"));
-          delete this->Cert;
+          this->deleteCert();
           return;
       }
       case 2: //password error
           this->display_ssl_err(tr("Error in password"));
-          delete this->Cert;
+          this->deleteCert();
           return;
     }
-    if (this->Cert->check_key()!=0)
+    if (this->getCert()->check_key()!=0)
     {
         this->display_ssl_err(tr("Invalid Key"));
-        delete this->Cert;
+        this->deleteCert();
         return;
     }
     if (this->ui->radioButtonDisplayCSR->isChecked())
     {
-      if (this->Cert->check_key_csr_match() !=0)
+      if (this->getCert()->check_key_csr_match() !=0)
       {
           this->display_ssl_err(tr("No match between CSR and key"));
-          delete this->Cert;
+          this->deleteCert();
           return;
       }
       QMessageBox::information(this,tr("Valid"),tr("CSR and key match"));
     }
     else
     {
-      if (this->Cert->check_key_cert_match() !=0)
+      if (this->getCert()->check_key_cert_match() !=0)
       {
           this->display_ssl_err(tr("No match between cert and key"));
-          delete this->Cert;
+          this->deleteCert();
           return;
       }
       QMessageBox::information(this,tr("Valid"),tr("Certificate and key match"));
     }
-    delete this->Cert;
+    this->deleteCert();
 }
 
 /*********** Callbacks **********/
@@ -655,7 +671,7 @@ void SSLMainWindow::DlgGenerateCSRFinished()
     QString error;
     this->flush_async_dialog();
 
-    if ((this->Cert->SSLError !=0)||(SSLCertificates::abortnow == 1)) // In case of generate error / cancel, just close
+    if ((this->getCert()->SSLError !=0)||(SSLCertificates::abortnow == 1)) // In case of generate error / cancel, just close
     {
 
     }
@@ -663,16 +679,16 @@ void SSLMainWindow::DlgGenerateCSRFinished()
     {
         if (retcode == 2) this->display_ssl_err(error);
         emit add_text_output(error);
-        delete this->Cert;
+        this->deleteCert();
         this->close_async_dialog();
         return;
     }
-    switch (this->Cert->get_csr_PEM(this->buffer,MAX_CERT_SIZE))
+    switch (this->getCert()->get_csr_PEM(this->buffer,MAX_CERT_SIZE))
     {
     case 0: // no error
         this->ui->textEditCert->setText(this->buffer);
         this->ui->radioButtonDisplayCSR->setChecked(true);
-        switch (this->Cert->get_csr_HUM(this->buffer,MAX_CERT_SIZE))
+        switch (this->getCert()->get_csr_HUM(this->buffer,MAX_CERT_SIZE))
         {
         case 0: // no error
             emit add_text_output(this->buffer);
@@ -701,7 +717,7 @@ void SSLMainWindow::DlgGenerateCSRFinished()
         break;
     }
     this->display_key_type();
-    delete this->Cert;
+    this->deleteCert();
     this->close_async_dialog();
 }
 
@@ -711,9 +727,9 @@ void SSLMainWindow::DlgGenerateCertFinished()
     QString error;
     this->flush_async_dialog();
 
-    if ((this->Cert->SSLError ==1)||(SSLCertificates::abortnow == 1)) // In case of generate error / cancel, just close
+    if ((this->getCert()->SSLError ==1)||(SSLCertificates::abortnow == 1)) // In case of generate error / cancel, just close
     {
-        delete this->Cert;
+        this->deleteCert();
         this->close_async_dialog();
         return;
     }
@@ -721,20 +737,20 @@ void SSLMainWindow::DlgGenerateCertFinished()
     {
         if (retcode == 2) this->display_ssl_err(error);
         emit add_text_output(error);
-        delete this->Cert;
+        this->deleteCert();
         this->close_async_dialog();
         return;
     }
-    switch (this->Cert->get_cert_PEM(this->buffer,MAX_CERT_SIZE))
+    switch (this->getCert()->get_cert_PEM(this->buffer,MAX_CERT_SIZE))
     {
     case 0: // no error
         ui->textEditCert->setText(this->buffer);
         this->ui->radioButtonDisplayCertificate->setChecked(true);
-        switch (this->Cert->get_key_PEM(this->buffer,MAX_CERT_SIZE))
+        switch (this->getCert()->get_key_PEM(this->buffer,MAX_CERT_SIZE))
         {
         case 0: // no error
             ui->textEditKey->setText(this->buffer);
-            switch (this->Cert->get_cert_HUM(this->buffer,MAX_CERT_SIZE))
+            switch (this->getCert()->get_cert_HUM(this->buffer,MAX_CERT_SIZE))
                 {
                 case 0: // no error
                     emit add_text_output(this->buffer);
@@ -776,7 +792,7 @@ void SSLMainWindow::DlgGenerateCertFinished()
     }
 
     this->display_key_type();
-    delete this->Cert;
+    this->deleteCert();
     this->close_async_dialog();
 }
 
@@ -849,19 +865,19 @@ void SSLMainWindow::on_pushButtonTestKey_clicked()
     {
     case 1: {
         this->display_ssl_err(tr("Error parsing private key"));
-        delete this->Cert;
+        this->deleteCert();
         return;
     }
     case 2: //password error
         this->display_ssl_err(tr("Error in password"));
-        delete this->Cert;
+        this->deleteCert();
         return;
     }
-    if (this->Cert->check_key()!=0)
+    if (this->getCert()->check_key()!=0)
         this->display_ssl_err(tr("Invalid Key"));
     else
         QMessageBox::information(this,tr("Valid"),tr("Key is valid"));
-    delete this->Cert;
+    this->deleteCert();
 }
 
 void SSLMainWindow::on_comboBoxKeyType_currentIndexChanged(const QString &arg1)
@@ -879,9 +895,9 @@ void SSLMainWindow::on_comboBoxKeyType_currentIndexChanged(const QString &arg1)
     {
         this->init_cert();
         ui->comboBoxKeySize->clear();
-        for (int i=0;i< this->Cert->keyECListNum;i++)
-            ui->comboBoxKeySize->addItem(this->Cert->keyECList[i],
-                                         this->Cert->keyECListNIDCode[i]);
+        for (int i=0;i< this->getCert()->keyECListNum;i++)
+            ui->comboBoxKeySize->addItem(this->getCert()->keyECList[i],
+                                         this->getCert()->keyECListNIDCode[i]);
     }
 }
 
@@ -896,7 +912,7 @@ void SSLMainWindow::on_pushButtonDecryptKey_clicked()
     // Do the display
     this->DecryptKey();
     // Cleanup
-    delete this->Cert;
+    this->deleteCert();
     this->ui->pushButtonDecryptKey->setEnabled(true);
 }
 
@@ -911,7 +927,7 @@ void SSLMainWindow::on_pushButtonEncryptKey_clicked()
     // Do the display
     this->EncryptKey();
     // Cleanup
-    delete this->Cert;
+    this->deleteCert();
     this->ui->pushButtonEncryptKey->setEnabled(true);
 }
 
@@ -926,7 +942,7 @@ void SSLMainWindow::on_pushButtonDisplayKey_clicked()
     // Do the display
     this->DisplayKey();
     // Cleanup
-    delete this->Cert;
+    this->deleteCert();
     this->ui->pushButtonDisplayKey->setEnabled(true);
 }
 
@@ -948,7 +964,7 @@ void SSLMainWindow::on_pushButtonGenerate_clicked()
     if (this->get_key_param()!=0)
     {
         QMessageBox::warning(this,tr("Error"),tr("Error in Key Param"));
-        delete this->Cert;
+        this->deleteCert();
         return;
     }
 
@@ -974,7 +990,7 @@ int SSLMainWindow::read_pem_to_openssl()
     // Read content of textEditKey and put it in a Qchar* array
     QByteArray QBskey=this->ui->textEditKey->toPlainText().toLocal8Bit();
 
-    retcode=this->Cert->set_key_PEM(QBskey.data(),nullptr);
+    retcode=this->getCert()->set_key_PEM(QBskey.data(),nullptr);
     switch (retcode)
     {
     case 0://OK
@@ -982,7 +998,6 @@ int SSLMainWindow::read_pem_to_openssl()
     case 1:
     case 3:
         return retcode;
-        break;
     case 2:
         ok=true;
 
@@ -992,7 +1007,7 @@ int SSLMainWindow::read_pem_to_openssl()
         if (!password.isEmpty() && ok)
         {
             if (password.toLatin1().size() > PASSWORD_MAX_LENGTH) exit (2);
-            retcode=this->Cert->set_key_PEM(QBskey.data(),password.toLocal8Bit().data());
+            retcode=this->getCert()->set_key_PEM(QBskey.data(),password.toLocal8Bit().data());
         }
         password="00000000000000"; // TODO check if really overwrites in mem.
         if (retcode==3) // Unknown key type
@@ -1003,7 +1018,6 @@ int SSLMainWindow::read_pem_to_openssl()
     default: // Bad dev documentation !
         //TODO : output debug messsage
         return 1;
-        break;
     }
     this->display_key_type();
     return 0;
@@ -1011,29 +1025,30 @@ int SSLMainWindow::read_pem_to_openssl()
 
 int SSLMainWindow::get_key_param()
 {
-    unsigned int keysize, keytypeN;
+    unsigned int keysize;
+    int keytypeN;
     QString keytype,keyparam;
 
     keytype=this->ui->comboBoxKeyType->currentText();
     if (keytype=="rsa")
     {
         keytypeN=KeyRSA;
-        if ((keysize=this->ui->comboBoxKeySize->currentText().toInt())==0)
+        if ((keysize=this->ui->comboBoxKeySize->currentText().toUInt())==0)
             return 1;
-        return this->Cert->set_key_params(keysize,keytypeN);
+        return this->getCert()->set_key_params(keysize,keytypeN);
     }
     if (keytype=="dsa")
     {
         keytypeN=KeyDSA;
-        if ((keysize=this->ui->comboBoxKeySize->currentText().toInt())==0)
+        if ((keysize=this->ui->comboBoxKeySize->currentText().toUInt())==0)
             return 1;
-        return this->Cert->set_key_params(keysize,keytypeN);
+        return this->getCert()->set_key_params(keysize,keytypeN);
     }
     if (keytype=="ec")
     {
         keytypeN=KeyEC;
         keyparam=this->ui->comboBoxKeySize->currentText();
-        return this->Cert->set_key_params(0,keytypeN,keyparam.toLocal8Bit().data());
+        return this->getCert()->set_key_params(0,keytypeN,keyparam.toLocal8Bit().data());
     }
     return 1;
 }
@@ -1050,12 +1065,12 @@ int SSLMainWindow::display_generated_key(QString* errordisplay)
             *errordisplay=tr("Password is empty");
             return 1;
         }
-        if (this->Cert->set_cipher(cipheralg.toLatin1().data()) !=0)
+        if (this->getCert()->set_cipher(cipheralg.toLatin1().data()) !=0)
         {
             *errordisplay=tr("Cipher unknown");
             return 2;
         }
-        if ((retcode = this->Cert->get_key_PEM_enc(this->buffer,MAX_CERT_SIZE,keypassword.toLatin1().data()))!=0)
+        if ((retcode = this->getCert()->get_key_PEM_enc(this->buffer,MAX_CERT_SIZE,keypassword.toLatin1().data()))!=0)
         {
             switch (retcode)
             {
@@ -1076,7 +1091,7 @@ int SSLMainWindow::display_generated_key(QString* errordisplay)
     }
     else
     {
-        if ((retcode = this->Cert->get_key_PEM(this->buffer,MAX_CERT_SIZE))!=0)
+        if ((retcode = this->getCert()->get_key_PEM(this->buffer,MAX_CERT_SIZE))!=0)
         {
             switch (retcode)
             {
@@ -1100,13 +1115,14 @@ int SSLMainWindow::display_generated_key(QString* errordisplay)
     return 0;
 }
 
-void SSLMainWindow::display_key_type()
+QString SSLMainWindow::display_key_type()
 {
     char keytype[20];
-    this->Cert->get_key_type(keytype);
+    this->getCert()->get_key_type(keytype,20);
     QString keytypeoutput="Type : ";
     keytypeoutput += keytype;
     this->ui->labelDisplayKeyType->setText(keytypeoutput);
+    return QString(keytype);
 }
 
 void SSLWorker::createkey()
@@ -1148,7 +1164,7 @@ void SSLMainWindow::DisplayKey()
     }
 
     // Read key from openssl strcture to human readable format.
-    switch (this->Cert->get_key_HUM(this->buffer,MAX_CERT_SIZE))
+    switch (this->getCert()->get_key_HUM(this->buffer,MAX_CERT_SIZE))
     {
     case 1:
         this->display_ssl_err(tr("Copy error in SSL"));
@@ -1186,7 +1202,7 @@ void SSLMainWindow::EncryptKey()
     }
     // Get the Cipher algo to use and put it in openssl.
     QString cipheralg=this->ui->comboBoxKeyCipher->currentText();
-    if (this->Cert->set_cipher(cipheralg.toLatin1().data()) !=0)
+    if (this->getCert()->set_cipher(cipheralg.toLatin1().data()) !=0)
     {
         this->display_ssl_err(tr("Cipher unknown"));
         return;
@@ -1205,7 +1221,7 @@ void SSLMainWindow::EncryptKey()
     if (password.toLatin1().size() > PASSWORD_MAX_LENGTH) exit (2); // Stupidity is punished :-)
 
     // get the encrypted form of the key
-    if (this->Cert->get_key_PEM_enc((char*)this->buffer,MAX_CERT_SIZE,password.toLatin1().data()) != 0)
+    if (this->getCert()->get_key_PEM_enc(static_cast<char*>(this->buffer),MAX_CERT_SIZE,password.toLatin1().data()) != 0)
     {
         password="00000000000000";
         this->display_ssl_err(tr("Error encrypt private key"));
@@ -1228,7 +1244,7 @@ void SSLMainWindow::DecryptKey()
         this->display_ssl_err(tr("Error parsing private key"));
         return;
     }
-    switch (this->Cert->get_key_PEM(this->buffer,MAX_CERT_SIZE))
+    switch (this->getCert()->get_key_PEM(this->buffer,MAX_CERT_SIZE))
     {
     case 0: // no error
         ui->textEditKey->setText(this->buffer);
@@ -1252,9 +1268,9 @@ void SSLMainWindow::DlgGenerateKeyFinished()
     int retcode;
     QString error;
     this->flush_async_dialog();
-    if ((this->Cert->SSLError !=0)||(SSLCertificates::abortnow != 0)) // In case of generate error / cancel, just close
+    if ((this->getCert()->SSLError !=0)||(SSLCertificates::abortnow != 0)) // In case of generate error / cancel, just close
     {
-        delete this->Cert;
+        this->deleteCert();
         this->close_async_dialog();
         return;
     }
@@ -1263,12 +1279,12 @@ void SSLMainWindow::DlgGenerateKeyFinished()
     {
         if (retcode == 2) this->display_ssl_err(error);
         emit add_text_output(error);
-        delete this->Cert;
+        this->deleteCert();
         this->close_async_dialog();
         return;
     }
 
-    switch (this->Cert->get_key_HUM(this->buffer,MAX_CERT_SIZE))
+    switch (this->getCert()->get_key_HUM(this->buffer,MAX_CERT_SIZE))
     {
     case 0: // no error
         emit add_text_output(this->buffer);
@@ -1289,7 +1305,7 @@ void SSLMainWindow::DlgGenerateKeyFinished()
     }
     this->display_key_type();
 
-    delete this->Cert;
+    this->deleteCert();
     this->close_async_dialog();
 }
 
@@ -1349,19 +1365,19 @@ void SSLMainWindow::on_pushButtonLoadKey_clicked()
     {
     case 1: {
         this->display_ssl_err(tr("Error parsing private key"));
-        delete this->Cert;
+        this->deleteCert();
         return;
     }
     case 2: //password error
         this->display_ssl_err(tr("Error in password"));
-        delete this->Cert;
+        this->deleteCert();
         return;
     }
-    if (this->Cert->check_key()!=0)
+    if (this->getCert()->check_key()!=0)
         this->display_ssl_err(tr("Invalid Key"));
     else
     {
-        switch (this->Cert->get_key_type())
+        switch (this->getCert()->get_key_type())
         {
         case KeyRSA:
             this->ui->labelKeyType->setText("rsa");
@@ -1377,7 +1393,7 @@ void SSLMainWindow::on_pushButtonLoadKey_clicked()
         }
     }
     QMessageBox::information(this,tr("Valid"),tr("Valid key, type ")+this->ui->labelKeyType->text());
-    delete this->Cert;
+    this->deleteCert();
 }
 
 void SSLMainWindow::on_pushButtonSaveCert_clicked()
@@ -1428,12 +1444,12 @@ void SSLMainWindow::on_pushButtonSave2p12_clicked() // TODO : finish this
     {
     case 1: {
         this->display_ssl_err(tr("Error parsing private key"));
-        delete this->Cert;
+        this->deleteCert();
         return;
     }
     case 2: //password error
         this->display_ssl_err(tr("Error in password"));
-        delete this->Cert;
+        this->deleteCert();
         return;
     }
     // read cert
@@ -1441,17 +1457,17 @@ void SSLMainWindow::on_pushButtonSave2p12_clicked() // TODO : finish this
     {
     case 1: {
         this->display_ssl_err(tr("Error parsing certificate"));
-        delete this->Cert;
+        this->deleteCert();
         return;
     }
     case 2: //maybe blame user another time for forgetting the password ?
         this->display_ssl_err(tr("Error parsing certificate"));
-        delete this->Cert;
+        this->deleteCert();
         return;
     }
 
-    //QMessageBox::information(this,"Name",this->Cert->get_pkcs12_name());
-    dlgP12 = new CDialogPKCS12 (this->Cert,"",true,this);
+    //QMessageBox::information(this,"Name",this->getCert()->get_pkcs12_name());
+    dlgP12 = new CDialogPKCS12 (this->getCert(),"",true,this);
 
     QObject::connect(dlgP12, SIGNAL(DlgPKCS12_Finished(bool,bool,int)),
                      this, SLOT(DlgPKCS12_Finished(bool,bool,int )));
@@ -1475,13 +1491,17 @@ void SSLMainWindow::on_pushButtonLoadPKCS12_clicked()
                        tr("pkcs12 (*.p12 *.pfx);;Any (*.*)"));
     if (filename=="")
     {
-        delete this->Cert;
+        this->deleteCert();
         return;
     }
     FILE* file;
-    file=fopen(filename.toLocal8Bit().data(),"rb");
+    if (fopen_s(&file,filename.toLocal8Bit().data(),"rb") != 0)
+    {
+        QMessageBox::warning(this,tr("Error opening file"),tr("Cannot open file : ")+filename);
+        return;
+    }
 
-    if ((retcode=this->Cert->load_pkcs12(file,"")) != 0) // TODO : check what precise error generates pass failure
+    if ((retcode=this->getCert()->load_pkcs12(file,"")) != 0) // TODO : check what precise error generates pass failure
     {
         rewind(file);
         bool ok=true;
@@ -1493,7 +1513,7 @@ void SSLMainWindow::on_pushButtonLoadPKCS12_clicked()
         {
             if (password.toLatin1().size() > PASSWORD_MAX_LENGTH) exit (2);
 
-            retcode=this->Cert->load_pkcs12(file,password.toLatin1().data());
+            retcode=this->getCert()->load_pkcs12(file,password.toLatin1().data());
         }
         password="00000000000000";
 
@@ -1508,7 +1528,7 @@ void SSLMainWindow::on_pushButtonLoadPKCS12_clicked()
             case 3: this->display_ssl_err(tr("Unsupported key type"));
               break;
           }
-          delete this->Cert;
+          this->deleteCert();
           fclose(file);
           return;
          }
@@ -1516,8 +1536,8 @@ void SSLMainWindow::on_pushButtonLoadPKCS12_clicked()
 
     fclose(file);
 
-    //QMessageBox::information(this,"Name",this->Cert->get_pkcs12_name());
-    dlgP12 = new CDialogPKCS12 (this->Cert,filename,false,this);
+    //QMessageBox::information(this,"Name",this->getCert()->get_pkcs12_name());
+    dlgP12 = new CDialogPKCS12 (this->getCert(),filename,false,this);
 
     QObject::connect(dlgP12, SIGNAL(DlgPKCS12_Finished(bool,bool,int)),
                      this, SLOT(DlgPKCS12_Finished(bool,bool,int )));
@@ -1536,7 +1556,7 @@ void SSLMainWindow::DlgPKCS12_Finished(bool Cancel, bool MainCertImport, int caC
     if (MainCertImport)
     {
       /** Get Certificate */
-      if ((retcode=this->Cert->get_cert_PEM(this->buffer,MAX_CERT_SIZE)) != 0)
+      if ((retcode=this->getCert()->get_cert_PEM(this->buffer,MAX_CERT_SIZE)) != 0)
       {
          switch(retcode)
          {
@@ -1553,7 +1573,7 @@ void SSLMainWindow::DlgPKCS12_Finished(bool Cancel, bool MainCertImport, int caC
         ui->textEditCert->setText(this->buffer);
         ui->radioButtonDisplayCertificate->setChecked(true);
         /** Get Key */
-        if ((retcode= this->Cert->get_key_PEM(this->buffer,MAX_CERT_SIZE)) != 0)
+        if ((retcode= this->getCert()->get_key_PEM(this->buffer,MAX_CERT_SIZE)) != 0)
         {
            switch(retcode)
            {
@@ -1574,7 +1594,7 @@ void SSLMainWindow::DlgPKCS12_Finished(bool Cancel, bool MainCertImport, int caC
     }
     else
     {
-      if ((retcode=this->Cert->get_pkcs12_certs_pem(caCertImport,this->buffer,MAX_CERT_SIZE)) != 0)
+      if ((retcode=this->getCert()->get_pkcs12_certs_pem(static_cast<unsigned int>(caCertImport),this->buffer,MAX_CERT_SIZE)) != 0)
       {
          switch(retcode)
          {
@@ -1594,7 +1614,7 @@ void SSLMainWindow::DlgPKCS12_Finished(bool Cancel, bool MainCertImport, int caC
       }
      }
   }
-  delete this->Cert;
+  this->deleteCert();
   this->dlgP12->close();
   this->dlgP12->deleteLater();
 }
@@ -1629,7 +1649,7 @@ void SSLMainWindow::get_settings(QString setting)
     {
         extensionElmt * newelement = this->addExtensionElmt(
                     settings.value(extname+"label"+QString::number(i),"Error").toString(),
-                    settings.value(extname+"NID"+QString::number(i),0).toInt(),
+                    settings.value(extname+"NID"+QString::number(i),0).toUInt(),
                     settings.value(extname+"critical"+QString::number(i),false).toBool(),
                     settings.value(extname+"value"+QString::number(i),"Error").toString());
         addExtensionLine(newelement);
@@ -1764,4 +1784,135 @@ void SSLMainWindow::network_reply_finished(QNetworkReply* reply) //TODO
     //QMessageBox::information(this,"Error update","returned : " + str);
     //TODO On all other errors, check last OK reply : if older than 1 month, alert user
     //For now, silently die (alone)
+}
+
+/*********************** Stack window and stack **********************************/
+void SSLMainWindow::on_pushButtonOpenStack_clicked()
+{
+    this->stackWindow->show();
+}
+
+void SSLMainWindow::import_cert_key(CStackWindow::CertData certificate)
+{
+   switch(certificate.cert_type)
+   {
+     case CStackWindow::csr :
+       this->ui->radioButtonDisplayCSR->setChecked(true);
+       this->ui->radioButtonDisplayCertificate->setChecked(false);
+       this->ui->textEditCert->setText(certificate.certificate);
+     break;
+     case CStackWindow::certificate :
+       this->ui->radioButtonDisplayCSR->setChecked(false);
+       this->ui->radioButtonDisplayCertificate->setChecked(true);
+       this->ui->textEditCert->setText(certificate.certificate);
+     break;
+     case CStackWindow::nocert :
+       this->ui->radioButtonDisplayCSR->setChecked(false);
+       this->ui->radioButtonDisplayCertificate->setChecked(false);
+       this->ui->textEditCert->setText("");
+   }
+
+   QString keytypeoutput="Type : ";
+   switch (certificate.key_type)
+   {
+     case CStackWindow::rsa :
+        keytypeoutput += "rsa";
+        this->ui->textEditKey->setText(certificate.key);
+     break;
+     case CStackWindow::dsa :
+        keytypeoutput += "dsa";
+        this->ui->textEditKey->setText(certificate.key);
+     break;
+     case CStackWindow::ec :
+       keytypeoutput += "ec";
+       this->ui->textEditKey->setText(certificate.key);
+     break;
+     case CStackWindow::nokey :
+       keytypeoutput += "No key";
+       this->ui->textEditKey->setText("");
+
+   }
+   this->ui->labelDisplayKeyType->setText(keytypeoutput);
+}
+
+
+void SSLMainWindow::on_pushButtonPushCert_clicked()
+{
+    CStackWindow::CertData certificate;
+    bool nocert=false;
+    // Check if cert & key exists and are correct
+    this->init_cert();
+    if (this->ui->textEditCert->toPlainText().size() >10)
+    {
+      if (this->read_cert_pem_to_openssl() != 0)
+      {
+        QMessageBox::warning(this,"Error","Certificate / CSR is not valid");
+        return;
+      }
+      certificate.certificate=this->ui->textEditCert->toPlainText();
+      char CN[100];
+      if (this->ui->radioButtonDisplayCSR->isChecked())
+      {
+        certificate.cert_type=CStackWindow::csr;
+        if (this->getCert()->get_csr_CN(CN,100)!=0)
+        {
+          certificate.name="NoName";
+        }
+        else
+        {
+          certificate.name=CN;
+        }
+      }
+      else
+      {
+        certificate.cert_type=CStackWindow::certificate;
+        if (this->getCert()->get_cert_CN(CN,100)!=0)
+        {
+          certificate.name="NoName";
+        }
+        else
+        {
+          certificate.name=CN;
+        }
+      }
+    }
+    else
+    {
+        certificate.certificate="";
+        certificate.cert_type=CStackWindow::nocert;
+        certificate.name="<No cert>";
+        nocert=true;
+        qDebug() << "No certificate to push";
+    }
+
+    if (this->ui->textEditKey->toPlainText().size() > 10)
+    {
+      if (this->read_pem_to_openssl() != 0)
+      {
+        QMessageBox::warning(this,"Error","Certificate / CSR is not valid");
+        return;
+      }
+      certificate.key=this->ui->textEditKey->toPlainText();
+      QString key_type=this->display_key_type();
+      if (key_type == "rsa") certificate.key_type=CStackWindow::rsa;
+      if (key_type == "dsa") certificate.key_type=CStackWindow::dsa;
+      if (key_type == "ec") certificate.key_type=CStackWindow::ec;
+    }
+    else
+    {
+      certificate.key_type=CStackWindow::nokey;
+      certificate.key_param="";
+      if (nocert==true)
+      {
+        QMessageBox::warning(this,"Error","Nothing to push !");
+        return;
+      }
+    }
+    this->deleteCert();
+
+    if (this->stackWindow->push_cert(&certificate)!=0)
+    {
+      QMessageBox::warning(this,"Error","Error pushing certificate");
+    }
+    this->stackWindow->show();
 }
