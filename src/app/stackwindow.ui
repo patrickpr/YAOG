@@ -6,19 +6,19 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>338</width>
-    <height>281</height>
+    <width>360</width>
+    <height>327</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Dialog</string>
+   <string>Stack</string>
   </property>
   <widget class="QListWidget" name="listWidget">
    <property name="geometry">
     <rect>
      <x>10</x>
-     <y>10</y>
-     <width>201</width>
+     <y>60</y>
+     <width>241</width>
      <height>261</height>
     </rect>
    </property>
@@ -29,8 +29,8 @@
    </property>
    <property name="geometry">
     <rect>
-     <x>230</x>
-     <y>20</y>
+     <x>260</x>
+     <y>110</y>
      <width>91</width>
      <height>23</height>
     </rect>
@@ -45,8 +45,8 @@
    </property>
    <property name="geometry">
     <rect>
-     <x>230</x>
-     <y>50</y>
+     <x>260</x>
+     <y>140</y>
      <width>91</width>
      <height>23</height>
     </rect>
@@ -58,8 +58,8 @@
   <widget class="QPushButton" name="pushButtonHide">
    <property name="geometry">
     <rect>
-     <x>230</x>
-     <y>250</y>
+     <x>260</x>
+     <y>300</y>
      <width>91</width>
      <height>23</height>
     </rect>
@@ -74,14 +74,56 @@
    </property>
    <property name="geometry">
     <rect>
-     <x>230</x>
-     <y>220</y>
+     <x>260</x>
+     <y>270</y>
      <width>91</width>
      <height>23</height>
     </rect>
    </property>
    <property name="text">
     <string>Purge all</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="pushButtonSelectSign">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="geometry">
+    <rect>
+     <x>260</x>
+     <y>60</y>
+     <width>91</width>
+     <height>23</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Sel for signing</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="labelStaticSign">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>20</y>
+     <width>101</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Signing Certificate :</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="labelSignCert">
+   <property name="geometry">
+    <rect>
+     <x>120</x>
+     <y>20</y>
+     <width>231</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>&lt;none&gt;</string>
    </property>
   </widget>
  </widget>

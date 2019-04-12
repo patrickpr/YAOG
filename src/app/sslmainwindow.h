@@ -171,9 +171,12 @@ private:
 
     // Certificate stuff
     SSLCertificates *Cert;
-    void init_cert(); //!< creates a new cert and catches errors.
+    void init_cert(); //!< initialise this->Cert
+    void init_cert(SSLCertificates **newCert); //!< creates a new cert and catches errors.
     SSLCertificates* getCert(); //!< create if null and returns Cert
     void deleteCert(); //!< delete Cert object and set to nullptr
+    int push_cert_options(SSLCertificates* cert);//!< push name,options,digest to cert
+    int push_cert_validity(SSLCertificates* cert);//!< push date to cert
 
     int cert_output_type; //!< PEM in textDisplay is cert/csr...
     QDateTime CertStartDate; //!< Certificate start date
@@ -193,6 +196,14 @@ private:
 
     // PKCS12 stuff
     CDialogPKCS12* dlgP12;
+
+    /**
+     * @brief read_pem_to_openssl reads the key in window and puts it in openssl structure
+     * @param keySrc QString : pem encoded key
+     * @param keyDst SSLCertificates* : wher to put key
+     * @return  0: success , 1: ssl error, 2: password error, 3: unknown key
+     */
+    int read_pem_to_openssl(QString keySrc, SSLCertificates* keyDst);
     /**
      * @brief read_pem_to_openssl reads the key in window and puts it in openssl structure
      * Cert must be allocated
@@ -200,6 +211,14 @@ private:
      * @return 0: success , 1: ssl error, 2: password error, 3: unknown key
      */
     int read_pem_to_openssl();
+    /**
+     * @brief read_cert_pem_to_openssl reads the cert in window and puts it in openssl structure
+     * @param certType SSLCertificates::certType : type (csr / cert)
+     * @param certSrc QString : cert in pem format
+     * @param certDst SSLCertificate* : where to put it.
+     * @return  0: success , 1: ssl error, 2: password error
+     */
+    int read_cert_pem_to_openssl(SSLCertificates::certType certType,QString certSrc, SSLCertificates* certDst);
     /**
      * @brief read_cert_pem_to_openssl reads the cert in window and puts it in openssl structure
      * Cert must be allocated
@@ -336,6 +355,8 @@ private slots:
     void on_pushButtonOpenStack_clicked();
 
     void on_pushButtonPushCert_clicked();
+
+    void on_pushButtonSignCert_clicked();
 
 signals:
     //extension_button_del_on_clicked(int row);

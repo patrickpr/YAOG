@@ -8,13 +8,15 @@ CStackWindow::CStackWindow(QWidget *parent) :
   ui->setupUi(this);
 
   this->mainWindow=parent;
-  this->keyName[KeyRSA]="rsa";
-  this->keyName[KeyDSA]="dsa";
-  this->keyName[KeyEC]="ec";
+  this->keyName[SSLCertificates::KeyRSA]="rsa";
+  this->keyName[SSLCertificates::KeyDSA]="dsa";
+  this->keyName[SSLCertificates::KeyEC]="ec";
   this->stack.clear();
 
   this->windowsPositionSet=false;
   connect(this->ui->listWidget,SIGNAL(itemSelectionChanged()),this,SLOT(select_cert()));
+  this->signing_cert.cert_type = nocert;
+  this->ui->labelSignCert->setText("<none>");
 }
 
 CStackWindow::~CStackWindow()
@@ -28,6 +30,7 @@ void CStackWindow::stack_empty(bool empty)
    if (this->ui->listWidget->selectedItems().size() == 0) empty=true;
    this->ui->pushButtonDelete->setDisabled(empty);
    this->ui->pushButtonPop->setDisabled(empty);
+   this->ui->pushButtonSelectSign->setDisabled(empty);
 }
 
 void CStackWindow::select_cert()
@@ -43,6 +46,7 @@ void CStackWindow::select_cert()
   }
   this->ui->pushButtonDelete->setDisabled(empty);
   this->ui->pushButtonPop->setDisabled(empty);
+  this->ui->pushButtonSelectSign->setDisabled(empty);
 }
 
 void CStackWindow::update_list()
@@ -56,16 +60,16 @@ void CStackWindow::update_list()
     QString dis="";
     if (stack[i].cert_type != nocert)
     {
-      if (stack[i].cert_type == certificate) dis+="Cert:";
-      else if (stack[i].cert_type == csr) dis+="CSR:";
+      if (stack[i].cert_type == certificate) dis+="Cert :";
+      else if (stack[i].cert_type == csr) dis+="CSR  :";
       dis+=stack[i].name;
     }
     else
     {
-      dis+="<No cert>";
+      dis+="<No cert> ";
     }
-    dis+=":";
-    if (stack[i].key_type != nokey)
+    dis+=" : ";
+    if (stack[i].key_type != SSLCertificates::KeyNone)
     {
       dis+= this->keyName[stack[i].key_type] +'(' + stack[i].key_param +')';
     }
@@ -127,4 +131,27 @@ void CStackWindow::on_pushButtonPop_clicked()
         this->stack[
           this->ui->listWidget->row(selected[0])
         ]);
+}
+
+void CStackWindow::on_pushButtonSelectSign_clicked()
+{
+  QList<QListWidgetItem *> selected;
+  // get selected item
+  selected=this->ui->listWidget->selectedItems();
+  if (selected.size()==0) return;
+  CertData certSel=this->stack[this->ui->listWidget->row(selected[0])];
+  if (certSel.cert_type != certificate || certSel.key_type == SSLCertificates::KeyNone)
+  {
+    QMessageBox::warning(this,"Cannot select","Must have a certificate and a key to be able to sign");
+    return;
+  }
+  this->signing_cert=this->stack[this->ui->listWidget->row(selected[0])];
+  QString display= this->signing_cert.name + " / " + this->keyName[this->signing_cert.key_type];
+
+  this->ui->labelSignCert->setText(display);
+}
+
+CStackWindow::CertData CStackWindow::getSigningCert()
+{
+  return this->signing_cert;
 }

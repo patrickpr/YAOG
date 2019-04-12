@@ -499,6 +499,82 @@ int SSLCertificates::create_cert()
     return 0;
 }
 
+int SSLCertificates::sign_cert(SSLCertificates* certToSign, SSLCertificates* signingCert, unsigned int serial)
+{
+    X509_NAME2 *x509Name, *x509NameSigner;
+    std::string value;
+    int i;
+
+    if (this->output_display != nullptr) this->output_display("Starting certificate signing\n");
+    if (X509_set_version(this->x509,2) == 0)
+    {
+        this->get_ssl_errors();
+        return 1;
+    }
+    if (ASN1_INTEGER_set(X509_get_serialNumber(this->x509),static_cast<long>(serial)) == 0)
+    {
+        this->get_ssl_errors();
+        return 1;
+    }
+
+    // Add start and end date
+    if ((this->startDate == nullptr) || (this->endDate == nullptr))
+    {
+        return 2;
+    }
+    if ((X509_set_notBefore(this->x509,this->startDate)!=1)
+            || (X509_set_notAfter(this->x509,this->endDate)!=1))
+    {
+            this->get_ssl_errors();
+            return 1;
+    }
+
+    // set public key from certToSign
+    if (X509_set_pubkey(this->x509,X509_REQ_get0_pubkey(certToSign->csr)) == 0)
+    {
+        this->get_ssl_errors();
+        return 1;
+    }
+
+    // set subject name from certToSign
+    x509Name=X509_get_subject_name(certToSign->x509);
+    if (X509_set_subject_name(this->x509,x509Name) != 1)
+    {
+        this->get_ssl_errors();
+        return 1;
+    }
+
+    // Set issuer name
+    x509NameSigner=X509_get_subject_name(signingCert->x509);
+    X509_set_issuer_name(this->x509,x509NameSigner);
+
+    /* Add various extensions: standard extensions */
+    for (i=0;i<this->extensionNum;i++)
+    {
+        if (this->extensionCritical[i]==0)
+            value="";
+        else
+            value="critical,";
+
+        value += this->extensionVal[i].data();
+        if (this->add_ext_bytxt(this->x509,this->extensionName[i].data(),value.data()) == 0)
+        {
+            this->get_ssl_errors();
+            return 1;
+        }
+    }
+    //this->add_ext(this->x509, NID_basic_constraints, (char*)"critical,CA:TRUE");
+
+    // TODO : check if signingCert has isCA = true
+    if (!X509_sign(this->x509,signingCert->pkey,this->useDigest))
+    {
+        this->get_ssl_errors();
+        return 1;
+    }
+    if (this->output_display != nullptr) this->output_display("finished certificate generation\n");
+    return 0;
+}
+
 int SSLCertificates::create_csr()
 {
     X509_NAME2   *x509Name = nullptr;
@@ -855,8 +931,6 @@ int SSLCertificates::get_key_HUM(char* Skey,size_t maxlength) {
         return 3;
     }
 
-
-
     BIO_get_mem_ptr(mem, &bptr);
 
     if (bptr->length == 0) {
@@ -932,6 +1006,51 @@ int SSLCertificates::get_key_type(char* keytype,unsigned int size)
         return 0;
     }
     strcpy_s(keytype,size,"Unkown");
+    return 1;
+}
+
+int SSLCertificates::get_key_params(keyTypes* keytype,std::string &keyTypeString,int* rdsa,std::string &ectype)
+{
+    *keytype=static_cast<keyTypes>(this->keyType);
+    keyTypeString = keyTypeList[this->keyType-1];
+    switch (this->keyType)
+    {
+      case KeyRSA:
+      {
+          *rdsa=0;
+          RSA * rsa_key = EVP_PKEY_get1_RSA(this->pkey);
+          if (rsa_key==nullptr) return 1;
+          *rdsa = RSA_bits(rsa_key);
+          RSA_free(rsa_key);
+          return 0;
+       }
+      case KeyDSA:
+      {
+          *rdsa=0;
+          DSA * dsa_key = EVP_PKEY_get1_DSA(this->pkey);
+          if (dsa_key==nullptr) return 1;
+          *rdsa = DSA_bits(dsa_key);
+          DSA_free(dsa_key);
+          return 0;
+       }
+      case KeyEC:
+      {
+          EC_KEY * ec_key=EVP_PKEY_get1_EC_KEY(this->pkey); // get EC key from private key
+          const EC_GROUP * ec_group=EC_KEY_get0_group(ec_key); // get group from key
+          int ec_nid=EC_GROUP_get_curve_name(ec_group);
+          ectype="unknown";
+          for (int i=0;i<this->keyECListNum-1;i++)
+          {
+             if (ec_nid==this->keyECListNIDCode[i])
+             {
+               ectype.assign(this->keyECList[i]);
+             }
+          }
+      }
+
+          return 0;
+    }
+    keyTypeString = "Unkown";
     return 1;
 }
 

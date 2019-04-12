@@ -22,10 +22,6 @@
 #include <stdlib.h>
 #include <vector>
 
-#define KeyRSA 1
-#define KeyDSA 2
-#define KeyEC 3
-
 #define OPENSSL_BAD_PASSWORD_ERR 104
 #define OPENSSL_BAD_DECRYPT_ERR 100
 #define MAX_SSL_ERRORS 100  // max number of ssl errors to store
@@ -44,6 +40,9 @@ public:
      */
     SSLCertificates();
     ~SSLCertificates();
+
+    enum keyTypes { KeyNone=-1, KeyRSA=1, KeyDSA=2 , KeyEC = 3};
+    enum certType { NoCert=-1, Certificate=0, CSR=1};
 
     /**
      * @brief set_key_params : set parameters for all keys
@@ -95,6 +94,13 @@ public:
      * check ssl errors
      */
     int create_cert();
+    /**
+     * @brief sign_cert : sign a cert with another cert/key
+     * @param certToSign : CSR to sign 
+     * @param signingCert : certificate used to sign
+     * @return  0: success, 1: SSL error, 2: certificate validity error
+     */
+    int sign_cert(SSLCertificates* certToSign, SSLCertificates* signingCert, unsigned int serial);
     /**
      * @brief get_cert_PEM : put current cert as Pem in skey
      * @param Skey
@@ -274,6 +280,21 @@ public:
      * @return 0 : success, 1 error (see ssl errors)
      */
     int set_cipher(char* cipher);
+    /**
+     * @brief get_key_params (key must be loaded)
+     * @param param : size for RSA/DSA or type of EC
+     * @param size : max size for param
+     * @return
+     */
+    /**
+     * @brief get_key_params(key must be loaded)
+     * @param keytype SSLCertificates::keyTypes* : key type withine keyTypes enum
+     * @param keyTypeString string : key type
+     * @param rdsa int* : rsa/dsa size
+     * @param ectype string : specific ec string
+     * @return 0 on success, 1 if unknown
+     */
+    int get_key_params(keyTypes *keytype, std::string &keyTypeString, int *rdsa, std::string &ectype);
     /**
      * @brief get_key_type : get string type of current loaded key in EVP
      * @param keytype : key name or "Unknown"
