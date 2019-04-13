@@ -6,6 +6,8 @@ This project aims to allow creating certificates / keys in a quick and easy way.
 Features :
 - Single executable with no dependencies (openssl & Qt lib are included)
 - Create auto sign certificates or CSR with immediate PEM display to copy/paste
+- Certificate signing
+- Stack to handle multiple certificates
 - Conversion from certificate (private key) to csr
 - Allow RSA, DSA and elliptic curve keys
 - Encrypt/decrypt keys, check certificate / key match
@@ -25,7 +27,7 @@ Binary includes
 
 Licence : GPL V3
 
-Installation / doc ![here](docs/01-installation.md)
+Installation / doc : ![here](docs/01-installation.md)
 
 Main (and only !) window : 
 

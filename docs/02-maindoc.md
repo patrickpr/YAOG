@@ -1,14 +1,25 @@
 Documentation
 ===============
 
+About
+-----
+
 This software is all about creating certs/csr and keys quickly. 
 
-Be careful to save you certificates and keys, as the software won't warn you about unsaved changes !
+It will let you generate certificates of any kind, even if they are not secure (RSA 512 + md5 for example), or with incompatible X509 extensions.
+
+Remember to save you certificates and keys if you need them, as the software won't warn you about unsaved changes !
+
+Below is a quick documentation of main features, and a full step by step example is available ![here](10-full-example-1.md)
+
+Main Window
+-----------
 
 The main window has all you need : 
 
 * Subject : all elements that will be set in your certificate / CSR. Only the CN will be set in a new CSR
 * Key : type / length of key to generate. Check "password protected" to encrypt your key
+* X509 extensions
 * "Generate button" : see below
 
 ![MAIN](../img/main.jpg)
@@ -37,6 +48,8 @@ Certificate buttons
 
 * Test cert & key match : check the certificate/csr public key is related to the private key in the "Key" box.
 
+* Sign : sign a csr with the cert/key defined in the stack window
+
 Key buttons
 -----------
 
@@ -54,4 +67,18 @@ PKCS12
 Save or load pkcs12 format.
 You can add certificate (previously saved on disk) with the current cert/key in a single P12
 On the load dialog box, you can load the main certificate/key ("Import cert & key") or the other certificates in the P12 container.
- 
+
+Misc buttons
+------------
+
+Save Settings : save all the subject entries and all the X509 extensions in the default.ini file located in the installation directory
+
+Updates Check
+-------------
+
+First time you launch the software, it will ask you if you want to check for updates.
+To change this, edit the default.ini file and change the "checkupdate" variable to: 
+
+* 0 : no update checks
+* 1 : check updates
+* 3 : ask again next launch
