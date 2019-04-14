@@ -54,6 +54,7 @@ Note :
 
 You should now see the extension you added :
 
+![ext](img/12-fullex.jpg)
 
 Finaly select "Autosign+key" and click "generate".
 
@@ -79,5 +80,52 @@ Generate a certificate to sign
 
 Now, generate a certificate signing request (CSR) and sign it with the created CA.
 
-(ONGOING DOC! COME BACK LATER)
+Change the Name to : www.mysite.com, and change town name, change key to elliptic curve and disable password protection for key :
 
+![csr](img/30-fullex.jpg)
+
+Select "CSR+key" an click Generate.
+
+Note : when generating aa csr only the Name, country, etc... are set into the CSR.
+
+Push the csr into the stack for later use with "push cert".
+
+Before signing, you must set : 
+
+* Validity : set to 365 days for example
+* X509 extensions : here set alternate names (delete CA=TRUE previous extension) :
+
+![csr](img/32-fullex.jpg)
+
+Then click "Sign" and 
+* enter password of the CA key
+* enter a serial number
+
+the csr is replaced by a certificate.
+
+Have a look at the certificate ("Display") to check all is OK : 
+
+![csr](img/34-fullex.jpg)
+
+Now save the certificate + key and the CA in a single PKC12 file : click "save PKCS12"
+
+1) Enter a friendly name (optional)
+2) Enter a password to protect the file
+3) Click "Select from stack", select the CA certificate in the stack and click "Sel for P12"
+4) The "MY CA" certificate (BUT NOT THE KEY) will be saved in the P12
+5) Save to a file
+
+![csr](img/36-fullex.jpg)
+
+Renew a certificate
+-------------------- 
+
+To renew a certificate : 
+1) Load the CA (cert + key or only the key)in the stack and select it as signing certificate
+2) Load the certificate to renew in main window
+3) Set Name, Country, etc...
+4) Select "CSR (existing key)" and click Generate
+
+Then setup validity, X509 extensions and sign it again as before. 
+
+![csr](img/40-fullex.jpg)
