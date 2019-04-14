@@ -1,7 +1,7 @@
 #include "cdialogpkcs12.h"
 #include "ui_cdialogpkcs12.h"
 
-CDialogPKCS12::CDialogPKCS12(SSLCertificates *Certificate, QString Filename, bool write, QWidget *parent) :
+CDialogPKCS12::CDialogPKCS12(SSLCertificates *Certificate, QString Filename, bool write, CStackWindow *cur_stack, QWidget *parent) :
   QDialog(parent),
   ui(new Ui::CDialogPKCS12)
 {
@@ -10,7 +10,12 @@ CDialogPKCS12::CDialogPKCS12(SSLCertificates *Certificate, QString Filename, boo
   this->cert=Certificate;
   this->file=Filename;
   this->isWrite=write;
-
+  this->stack=cur_stack;
+  // make connection to import cert from stack
+  QObject::connect(
+        this->stack,SIGNAL(p12_import(CStackWindow::CertData)),
+        this,SLOT(stack_cert_selected(CStackWindow::CertData))
+  );
   QString value;
   char * certCN=static_cast<char *>(malloc(sizeof(char)*500));
   if (certCN==nullptr)
@@ -30,16 +35,18 @@ CDialogPKCS12::CDialogPKCS12(SSLCertificates *Certificate, QString Filename, boo
 
   if (this->isWrite)
   {
-    ui->pushButtonImportCert->hide();
-    ui->pushButtonImportMain->hide();
+    this->ui->pushButtonImportCert->hide();
+    this->ui->pushButtonImportMain->hide();
+    this->ui->pushButtonPushAll->hide();
   }
   else
   {
-    ui->lineEditPassword->hide();
-    ui->labelPassword->hide();
-    ui->pushButtonLoadCert->hide();
-    ui->pushButtonSaveAs->hide();
-    ui->lineEditFriendlyName->setText(cert->get_pkcs12_name());
+    this->ui->lineEditPassword->hide();
+    this->ui->labelPassword->hide();
+    this->ui->pushButtonLoadCert->hide();
+    this->ui->pushButtonSaveAs->hide();
+    this->ui->pushButtonSelectFromStack->hide();
+    this->ui->lineEditFriendlyName->setText(cert->get_pkcs12_name());
 
      for (int i=0;i<cert->get_pkcs12_certs_num();i++)
      {
@@ -54,6 +61,35 @@ CDialogPKCS12::CDialogPKCS12(SSLCertificates *Certificate, QString Filename, boo
 CDialogPKCS12::~CDialogPKCS12()
 {
   delete ui;
+}
+
+void CDialogPKCS12::stack_cert_selected(CStackWindow::CertData certificate)
+{
+  SSLCertificates *newCA = new SSLCertificates();
+  switch (newCA->set_cert_PEM(certificate.certificate.toLocal8Bit(),""))
+  {
+    case 1://Error parsing cert
+    case 2://password (???)
+      QMessageBox::critical(this,tr("Error"),tr("Error loading cert\nLoad with main window for more info"));
+      delete newCA;
+      return;
+  }
+  char CN[200];
+  if (newCA->get_cert_CN(CN,200) != 0)
+  {
+    QMessageBox::critical(this,tr("Error"),tr("Error getting CN of cert"));
+    delete newCA;
+    return;
+  }
+  QListWidgetItem *line=new QListWidgetItem(QString::fromLocal8Bit(CN));
+  ui->listWidgetCA->addItem(line);
+
+  if (this->cert->add_pkcs12_ca(certificate.certificate.toLocal8Bit()) != 0)
+  {
+    QMessageBox::critical(this,tr("Error"),tr("Error loading cert\nLoad with main window for more info"));
+   }
+  delete newCA;
+  return;
 }
 
 void CDialogPKCS12::on_pushButtonLoadCert_clicked()
@@ -161,4 +197,26 @@ void CDialogPKCS12::on_pushButtonSaveAs_clicked()
 void CDialogPKCS12::on_pushButtonCancel_clicked()
 {
     emit DlgPKCS12_Finished(true,false,0);
+}
+
+void CDialogPKCS12::on_pushButtonSelectFromStack_clicked()
+{
+    this->stack->pkcs12Selection(true);
+    this->stack->show();
+}
+
+void CDialogPKCS12::on_pushButtonPushAll_clicked()
+{
+    char buffer[MAX_CERT_SIZE];
+    for (int i=0;i< this->ui->listWidgetCA->count();i++)
+    {
+      CStackWindow::CertData curcert;
+      this->cert->get_pkcs12_certs_pem(static_cast<unsigned int>(i),buffer,MAX_CERT_SIZE);
+      curcert.certificate = QString::fromLocal8Bit(buffer);
+      curcert.cert_type=CStackWindow::certificate;
+      curcert.name=this->ui->listWidgetCA->item(i)->text();
+      curcert.key_type=SSLCertificates::KeyNone;
+      this->stack->push_cert(&curcert);
+    }
+    this->ui->pushButtonPushAll->setDisabled(true);
 }

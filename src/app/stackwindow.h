@@ -35,6 +35,8 @@ public:
 
   CertData getSigningCert();
 
+  void pkcs12Selection(bool isOn);
+
 private slots:
   void on_pushButtonHide_clicked();
 
@@ -46,6 +48,8 @@ private slots:
 
   void on_pushButtonSelectSign_clicked();
 
+  void on_pushButtonSelectForP12_clicked();
+
 protected slots:
     void select_cert();
 
@@ -53,6 +57,7 @@ private:
   void stack_empty(bool empty);//!< disable or enable buttons when stack is empty or not
   void update_list();
 
+  bool p12SelectMode;
   CertData signing_cert;
 
   QWidget * mainWindow;
@@ -64,6 +69,7 @@ private:
 
 signals:
   void pop_certificate(CStackWindow::CertData certificate);
+  void p12_import(CStackWindow::CertData certificate);
 };
 
 #endif // STACKWINDOW_H

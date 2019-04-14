@@ -113,9 +113,23 @@
      </widget>
     </item>
     <item>
+     <widget class="QPushButton" name="pushButtonSelectFromStack">
+      <property name="text">
+       <string>Select from stack</string>
+      </property>
+     </widget>
+    </item>
+    <item>
      <widget class="QPushButton" name="pushButtonImportCert">
       <property name="text">
        <string>Import selected</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QPushButton" name="pushButtonPushAll">
+      <property name="text">
+       <string>Push all in stack</string>
       </property>
      </widget>
     </item>

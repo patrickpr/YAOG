@@ -537,7 +537,7 @@ int SSLCertificates::sign_cert(SSLCertificates* certToSign, SSLCertificates* sig
     }
 
     // set subject name from certToSign
-    x509Name=X509_get_subject_name(certToSign->x509);
+    x509Name=X509_REQ_get_subject_name(certToSign->csr);
     if (X509_set_subject_name(this->x509,x509Name) != 1)
     {
         this->get_ssl_errors();
@@ -653,7 +653,7 @@ int SSLCertificates::get_csr_PEM(char *Skey, size_t maxlength) {
     if (bptr->length >= maxlength) {
         BIO_free(mem);return 2;
     }
-    strncpy_s(Skey,maxlength,bptr->data,bptr->length+1);
+    strncpy_s(Skey,maxlength,bptr->data,bptr->length);
     Skey[bptr->length+1]='\0';
     BIO_free(mem);
     return 0;
@@ -679,7 +679,7 @@ int SSLCertificates::get_csr_HUM(char* Skey,size_t maxlength) {
     if (bptr->length >= maxlength) {
         BIO_free(mem);return 2;
     }
-    strncpy_s(Skey,maxlength,bptr->data,bptr->length+1);
+    strncpy_s(Skey,maxlength,bptr->data,bptr->length);
     Skey[bptr->length+1]='\0';
     BIO_free(mem);
     return 0;
@@ -732,7 +732,7 @@ int SSLCertificates::get_cert_PEM(char *Skey, size_t maxlength, X509 *locX509) {
     if (bptr->length >= maxlength) {
         BIO_free(mem);return 2;
     }
-    strncpy_s(Skey,maxlength,bptr->data,bptr->length+1);
+    strncpy_s(Skey,maxlength,bptr->data,bptr->length);
     Skey[bptr->length+1]='\0';
     BIO_free(mem);
     return 0;
@@ -758,7 +758,7 @@ int SSLCertificates::get_cert_HUM(char* Skey,size_t maxlength) {
     if (bptr->length >= maxlength) {
         BIO_free(mem);return 2;
     }
-    strncpy_s(Skey,maxlength,bptr->data,bptr->length+1);
+    strncpy_s(Skey,maxlength,bptr->data,bptr->length);
     Skey[bptr->length+1]='\0';
     BIO_free(mem);
     return 0;
@@ -879,7 +879,7 @@ int SSLCertificates::get_key_PEM(char *Skey, size_t maxlength) {
         BIO_free(mem);return 2;
     }
     strncpy_s(Skey,maxlength,bptr->data,bptr->length);
-    Skey[bptr->length]='\0';
+    Skey[bptr->length+1]='\0';
     BIO_free(mem);
     return 0;
 }
@@ -946,6 +946,7 @@ int SSLCertificates::get_key_HUM(char* Skey,size_t maxlength) {
     BIO_free(mem);
     return 0;
 }
+
 
 int SSLCertificates::set_key_PEM(const char* Skey, char* password=nullptr)
 {
@@ -1209,7 +1210,7 @@ int SSLCertificates::load_pkcs12(FILE *file, const char* password)
       return 2;
   }
   switch (EVP_PKEY_type(EVP_PKEY_id(this->pkey)))
-  { // TODO : use get_key_type instead
+  {
     case EVP_PKEY_RSA: this->keyType = KeyRSA; break;
     case EVP_PKEY_DSA: this->keyType = KeyDSA; break;
     case EVP_PKEY_EC: this->keyType = KeyEC; break;

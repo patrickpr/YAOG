@@ -126,6 +126,19 @@
     <string>&lt;none&gt;</string>
    </property>
   </widget>
+  <widget class="QPushButton" name="pushButtonSelectForP12">
+   <property name="geometry">
+    <rect>
+     <x>260</x>
+     <y>190</y>
+     <width>91</width>
+     <height>23</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Sel for P12</string>
+   </property>
+  </widget>
  </widget>
  <resources/>
  <connections/>

@@ -89,7 +89,7 @@ SSLMainWindow::SSLMainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::
 }
 
 SSLMainWindow::extensionElmt *SSLMainWindow::addExtensionElmt(QString label,unsigned int NID,bool critical, QString value)
-{ // TODO : error check with memory alloc
+{
     extensionElmt* element=new extensionElmt;
     element->label=label;
     element->labelWidget = new QLabel(label,this);
@@ -127,9 +127,9 @@ void SSLMainWindow::addExtensionLine(extensionElmt *elmt)
 {
     int currentRow=this->ui->TWExtensions->rowCount();
     this->ui->TWExtensions->setRowCount(currentRow+1);
-    //currentRow--;
+
     elmt->row=currentRow;
-    // TODO : connect delete button to function.
+
     this->ui->TWExtensions->setCellWidget(currentRow,0,elmt->deleteBtnwdg);
     this->ui->TWExtensions->setCellWidget(currentRow,1,elmt->labelWidget);
     this->ui->TWExtensions->setCellWidget(currentRow,2,elmt->criticalwdg);
@@ -779,36 +779,20 @@ void SSLMainWindow::DlgGenerateCertFinished()
     case 0: // no error
         ui->textEditCert->setText(this->buffer);
         this->ui->radioButtonDisplayCertificate->setChecked(true);
-        switch (this->getCert()->get_key_PEM(this->buffer,MAX_CERT_SIZE))
+        switch (this->getCert()->get_cert_HUM(this->buffer,MAX_CERT_SIZE))
         {
         case 0: // no error
-            ui->textEditKey->setText(this->buffer);
-            switch (this->getCert()->get_cert_HUM(this->buffer,MAX_CERT_SIZE))
-                {
-                case 0: // no error
-                    emit add_text_output(this->buffer);
-                    break;
-                case 1:
-                    emit add_text_output(tr("Copy error in SSL (certificate)"));
-                    break;
-                case 2:
-                    emit add_text_output(tr("Buffer too small (blame dev)"));
-                    break;
-                case 3:
-                    emit add_text_output(tr("SSL Error displaying cert"));
-                    this->display_ssl_err(tr("SSL Error displaying cert"));
-                    break;
-                }
+            emit add_text_output(this->buffer);
             break;
         case 1:
-            emit add_text_output(tr("Memory copy error in SSL"));
+            emit add_text_output(tr("Copy error in SSL (csr)"));
             break;
         case 2:
             emit add_text_output(tr("Buffer too small (blame dev)"));
             break;
         case 3:
-            emit add_text_output(tr("SSL Error writing PEM"));
-            this->display_ssl_err(tr("SSL Error writing PEM"));
+            emit add_text_output(tr("SSL Error writing cert to PEM"));
+            this->display_ssl_err(tr("SSL Error writing cert to PEM"));
             break;
         }
         break;
@@ -1049,7 +1033,7 @@ int SSLMainWindow::read_pem_to_openssl(QString keySrc, SSLCertificates* keyDst)
             return 1;
         break;
     default: // Bad dev documentation !
-        //TODO : output debug messsage
+        QMessageBox::critical(this,"Dev Error","Please open issue with this : \"ret code unknown read_pem_openssl\" ");
         return 1;
     }
     return 0;
@@ -1471,12 +1455,26 @@ void SSLMainWindow::on_pushButtonLoadCert_clicked()
     file.close();
     this->ui->textEditCert->setText(cert);
 
-    // TODO : check cert by loading it
-    // TODO : set cert/csr radio buttons
+    this->init_cert();
+    if (this->read_cert_pem_to_openssl(SSLCertificates::Certificate,this->ui->textEditCert->toPlainText(),this->getCert()) == 0)
+    {
+      this->ui->radioButtonDisplayCertificate->setChecked(true);
+      this->ui->radioButtonDisplayCSR->setChecked(false);
+    }
+    else if (this->read_cert_pem_to_openssl(SSLCertificates::CSR,this->ui->textEditCert->toPlainText(),this->getCert()) == 0)
+    {
+      this->ui->radioButtonDisplayCSR->setChecked(true);
+      this->ui->radioButtonDisplayCertificate->setChecked(false);
+    }
+    else
+    {
+      QMessageBox::warning(this,"Error loading certificate","Certificate is not valid");
+      return;
+    }
 
 }
 
-void SSLMainWindow::on_pushButtonSave2p12_clicked() // TODO : finish this
+void SSLMainWindow::on_pushButtonSave2p12_clicked()
 {
     // Init cert class
     this->init_cert();
@@ -1508,7 +1506,7 @@ void SSLMainWindow::on_pushButtonSave2p12_clicked() // TODO : finish this
     }
 
     //QMessageBox::information(this,"Name",this->getCert()->get_pkcs12_name());
-    dlgP12 = new CDialogPKCS12 (this->getCert(),"",true,this);
+    dlgP12 = new CDialogPKCS12 (this->getCert(),"",true,this->stackWindow,this);
 
     QObject::connect(dlgP12, SIGNAL(DlgPKCS12_Finished(bool,bool,int)),
                      this, SLOT(DlgPKCS12_Finished(bool,bool,int )));
@@ -1542,8 +1540,18 @@ void SSLMainWindow::on_pushButtonLoadPKCS12_clicked()
         return;
     }
 
-    if ((retcode=this->getCert()->load_pkcs12(file,"")) != 0) // TODO : check what precise error generates pass failure
+    if ((retcode=this->getCert()->load_pkcs12(file,"")) != 0)
     {
+        if (retcode == 1)
+        {
+          QMessageBox::warning(this,"Error","Cannot read p12 file");
+          return;
+        }
+        if (retcode == 3)
+        {
+          QMessageBox::warning(this,"Error","Unuported key type");
+          return;
+        }
         rewind(file);
         bool ok=true;
         QString password;
@@ -1578,7 +1586,7 @@ void SSLMainWindow::on_pushButtonLoadPKCS12_clicked()
     fclose(file);
 
     //QMessageBox::information(this,"Name",this->getCert()->get_pkcs12_name());
-    dlgP12 = new CDialogPKCS12 (this->getCert(),filename,false,this);
+    dlgP12 = new CDialogPKCS12 (this->getCert(),filename,false,this->stackWindow,this);
 
     QObject::connect(dlgP12, SIGNAL(DlgPKCS12_Finished(bool,bool,int)),
                      this, SLOT(DlgPKCS12_Finished(bool,bool,int )));
@@ -1661,7 +1669,6 @@ void SSLMainWindow::DlgPKCS12_Finished(bool Cancel, bool MainCertImport, int caC
 }
 
 /************************ Settings ************************************************/
-
 
 void SSLMainWindow::get_settings(QString setting)
 {
@@ -1790,7 +1797,7 @@ void SSLMainWindow::network_reply_SSL_error(QNetworkReply* reply,QList<QSslError
       size--;
     }
   reply->deleteLater();
-  //TODO : do something.
+  //Silently die (alone) as not critical feature.
 }
 
 void SSLMainWindow::network_reply_finished(QNetworkReply* reply) //TODO
@@ -1875,7 +1882,6 @@ void SSLMainWindow::import_cert_key(CStackWindow::CertData certificate)
    }
    this->ui->labelDisplayKeyType->setText(keytypeoutput);
 }
-
 
 void SSLMainWindow::on_pushButtonPushCert_clicked()
 {
@@ -1994,18 +2000,24 @@ void SSLMainWindow::on_pushButtonSignCert_clicked()
     return;
   }
   this->init_cert();
-  // TODO : check CSR and not cert
+  if (!this->ui->radioButtonDisplayCSR->isChecked())
+  {
+    QMessageBox::warning(this,"Error","Must be a csr to sign");
+  }
   if (this->read_cert_pem_to_openssl()  != 0)
   {
-    QMessageBox::warning(this,"Error","Cannot load certificate to sign");
+    QMessageBox::warning(this,"Error","Cannot load csr to sign");
     return;
   }
   SSLCertificates* newCert;
   this->init_cert(&newCert);
 
   // Push data for certificate
-  this->push_cert_options(newCert);
-  this->push_cert_validity(newCert);
+  if (this->push_cert_options(newCert) !=0 ||
+      this->push_cert_validity(newCert) != 0)
+  { // Error message already displayed
+    return;
+  }
 
   // Display
   char CN[100];

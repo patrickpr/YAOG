@@ -17,11 +17,36 @@ CStackWindow::CStackWindow(QWidget *parent) :
   connect(this->ui->listWidget,SIGNAL(itemSelectionChanged()),this,SLOT(select_cert()));
   this->signing_cert.cert_type = nocert;
   this->ui->labelSignCert->setText("<none>");
+  // Disable the p12 selection mode
+  this->pkcs12Selection(false);
 }
 
 CStackWindow::~CStackWindow()
 {
   delete ui;
+}
+
+void CStackWindow::pkcs12Selection(bool isOn)
+{
+  this->p12SelectMode=isOn;
+  if (isOn)
+  {
+    this->ui->pushButtonSelectForP12->show();
+    this->ui->pushButtonPop->hide();
+    this->ui->pushButtonPurge->hide();
+    this->ui->pushButtonHide->hide();
+    this->ui->pushButtonDelete->hide();
+    this->ui->pushButtonSelectSign->hide();
+  }
+  else
+  {
+    this->ui->pushButtonSelectForP12->hide();
+    this->ui->pushButtonPop->show();
+    this->ui->pushButtonPurge->show();
+    this->ui->pushButtonHide->show();
+    this->ui->pushButtonDelete->show();
+    this->ui->pushButtonSelectSign->show();
+  }
 }
 
 void CStackWindow::stack_empty(bool empty)
@@ -60,8 +85,8 @@ void CStackWindow::update_list()
     QString dis="";
     if (stack[i].cert_type != nocert)
     {
-      if (stack[i].cert_type == certificate) dis+="Cert :";
-      else if (stack[i].cert_type == csr) dis+="CSR  :";
+      if (stack[i].cert_type == certificate) dis+="Cert : ";
+      else if (stack[i].cert_type == csr) dis+="CSR  : ";
       dis+=stack[i].name;
     }
     else
@@ -154,4 +179,21 @@ void CStackWindow::on_pushButtonSelectSign_clicked()
 CStackWindow::CertData CStackWindow::getSigningCert()
 {
   return this->signing_cert;
+}
+
+void CStackWindow::on_pushButtonSelectForP12_clicked()
+{
+  QList<QListWidgetItem *> selected;
+  // get selected item
+  selected=this->ui->listWidget->selectedItems();
+  if (selected.size()==0) return;
+  CertData certSel=this->stack[this->ui->listWidget->row(selected[0])];
+  if (certSel.cert_type != certificate)
+  {
+    QMessageBox::warning(this,"Cannot select","Must have a certificate to import in pkcs12");
+    return;
+  }
+  emit p12_import(certSel);
+  this->pkcs12Selection(false);
+  this->on_pushButtonHide_clicked(); // Hide and save pos
 }

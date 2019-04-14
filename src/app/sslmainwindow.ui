@@ -901,6 +901,50 @@
   <widget class="QStatusBar" name="statusBar"/>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
+ <tabstops>
+  <tabstop>lineEditCertCN</tabstop>
+  <tabstop>lineEditCertC</tabstop>
+  <tabstop>lineEditCertS</tabstop>
+  <tabstop>lineEditCertL</tabstop>
+  <tabstop>lineEditCertO</tabstop>
+  <tabstop>lineEditCertOU</tabstop>
+  <tabstop>lineEditCertEmail</tabstop>
+  <tabstop>comboBoxCertDigest</tabstop>
+  <tabstop>lineEditCertDays</tabstop>
+  <tabstop>comboBoxKeyType</tabstop>
+  <tabstop>comboBoxKeySize</tabstop>
+  <tabstop>pushButtonGenerateCert</tabstop>
+  <tabstop>comboBoxCertGen</tabstop>
+  <tabstop>lineEditKeyPass</tabstop>
+  <tabstop>pushButtonEnableDaysLine</tabstop>
+  <tabstop>comboBoxKeyCipher</tabstop>
+  <tabstop>TWExtensions</tabstop>
+  <tabstop>pushButtonLoadPKCS12</tabstop>
+  <tabstop>pushButtonSave2p12</tabstop>
+  <tabstop>pushButtonGenerate</tabstop>
+  <tabstop>checkBoxKeyPassEnable</tabstop>
+  <tabstop>pushButtonSaveSettings</tabstop>
+  <tabstop>pushButtonPushCert</tabstop>
+  <tabstop>pushButtonOpenStack</tabstop>
+  <tabstop>toolButtonCertValidity</tabstop>
+  <tabstop>pushButtonAddExtension</tabstop>
+  <tabstop>pushButtonDisplayCert</tabstop>
+  <tabstop>radioButtonDisplayCertificate</tabstop>
+  <tabstop>radioButtonDisplayCSR</tabstop>
+  <tabstop>pushButtonSaveCert</tabstop>
+  <tabstop>pushButtonLoadCert</tabstop>
+  <tabstop>pushButtonTestKey_2</tabstop>
+  <tabstop>pushButtonSignCert</tabstop>
+  <tabstop>textEditCert</tabstop>
+  <tabstop>pushButtonEncryptKey</tabstop>
+  <tabstop>pushButtonDecryptKey</tabstop>
+  <tabstop>pushButtonSaveKey</tabstop>
+  <tabstop>pushButtonDisplayKey</tabstop>
+  <tabstop>labelDisplayKeyType</tabstop>
+  <tabstop>pushButtonLoadKey</tabstop>
+  <tabstop>pushButtonTestKey</tabstop>
+  <tabstop>textEditKey</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
 </ui>

@@ -223,15 +223,14 @@ public:
      * @brief get_csr_PEM : put CSR in human readable format to a string
      * @param Skey : string to receive CSR
      * @param maxlength : max size to put in Skey
-     * @return
+     * @return  0: sucess, 1 : error copying, 2: maxlength too small, 3: error getting cert, check ssl errors
      */
     int get_csr_HUM(char* Skey,size_t maxlength);
     /**
      * @brief set_csr_PEM : load csr in Skey in openssl structure
      * @param Skey : string containing CSR in PEM format
      * @param password : password if encrypted cert, can be null
-     * @return 0: sucess, 1 : error reading csr, 2: wrong password
-     * check ssl errors
+     * @return 0: sucess, 1 : error reading csr, 2: wrong password , check ssl errors
      */
     int set_csr_PEM(const char* Skey, char* password);
 
@@ -322,13 +321,14 @@ public:
         char values[200]; //!< possible values, comma separated
     } x509Extension; //!< Structure for x509 extension array
     /* not declared as static if it can be read from openssl in future release */
-    x509Extension X509ExtensionHelp[8] = {
+    x509Extension X509ExtensionHelp[9] = {
         {"basicConstraints",NID_basic_constraints,"CA:TRUE,CA:FALSE,pathlen:<num>"},
         {"keyUsage",NID_key_usage,"digitalSignature,nonRepudiation,keyEncipherment,dataEncipherment,keyAgreement,keyCertSign,cRLSign,encipherOnly,decipherOnly"},
         {"subjectAltName",NID_subject_alt_name,"URI:http://<site>,email:<mail>,IP:<IP4/6>"},
         {"crlDistributionPoints",NID_crl_distribution_points,"URI:http://<site>"},
         {"extendedKeyUsage",NID_ext_key_usage,"serverAuth,clientAuth,codeSigning,emailProtection,timeStamping,OCSPSigning,ipsecIKE,msCodeInd,msCodeCom,msCTLSign,msEFS"},
-        {"subjectKeyIdentifier",NID_subject_key_identifier,"hash"},
+        {"subjectKeyIdentifier",NID_subject_key_identifier,"<key>"},
+        {SN_authority_key_identifier,NID_authority_key_identifier,"keyid:<key>"},
         {"certificatePolicies",NID_certificate_policies,"1.2.4.5"},
         {"policyConstraints",NID_policy_constraints,"requireExplicitPolicy:<num>,inhibitPolicyMapping:<num>"} //!<list of common X509v3 extensions
     };
