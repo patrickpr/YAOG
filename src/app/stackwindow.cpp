@@ -197,3 +197,8 @@ void CStackWindow::on_pushButtonSelectForP12_clicked()
   this->pkcs12Selection(false);
   this->on_pushButtonHide_clicked(); // Hide and save pos
 }
+
+void CStackWindow::on_CStackWindow_rejected()
+{   // To save window position if user closes window with upper right cross.
+    this->on_pushButtonHide_clicked();
+}

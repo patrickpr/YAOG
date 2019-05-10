@@ -25,8 +25,8 @@
 #include "cdialogpkcs12.h"
 #include "stackwindow.h"
 
-#define YAOGVERSION "1.0.2"
-#define YAOGVERSIONF "01000200"
+#define YAOGVERSION "1.1.0"
+#define YAOGVERSIONF "01010000"
 #define YAOGPLATFORM "W32"
 #define UPDATESRC "https://www.proy.org/yaog/update.php"
 
@@ -174,7 +174,8 @@ private:
     void init_cert(); //!< initialise this->Cert
     void init_cert(SSLCertificates **newCert); //!< creates a new cert and catches errors.
     SSLCertificates* getCert(); //!< create if null and returns Cert
-    void deleteCert(); //!< delete Cert object and set to nullptr
+    void deleteCert(); //!< delete this->Cert object and set to nullptr
+    void deleteCert(SSLCertificates **newCert); //!< delete newCert object and set to nullptr
     int push_cert_options(SSLCertificates* cert);//!< push name,options,digest to cert
     int push_cert_validity(SSLCertificates* cert);//!< push date to cert
 
@@ -194,6 +195,9 @@ private:
     void close_async_dialog();
     QTimer *timer; //!< used to read data in static function
 
+    void display_cert(QString cert,bool update=false); //!< display "cert" in textEdit and set to update elements in main window if update=true;
+    void display_key(QString key, bool update=false); //!< display "key" in textEdit and set to update elements in main window if update=true;
+    bool cert_update,key_update; //!< used to block updates on changes. set to false by display_cert/key and reset by onTextChange slots
     // PKCS12 stuff
     CDialogPKCS12* dlgP12;
 
@@ -208,9 +212,10 @@ private:
      * @brief read_pem_to_openssl reads the key in window and puts it in openssl structure
      * Cert must be allocated
      * asks password if needed.
+     * @param cert SSLCertificate* : if not nullptr, put in this structure
      * @return 0: success , 1: ssl error, 2: password error, 3: unknown key
      */
-    int read_pem_to_openssl();
+    int read_pem_to_openssl(SSLCertificates* cert=nullptr);
     /**
      * @brief read_cert_pem_to_openssl reads the cert in window and puts it in openssl structure
      * @param certType SSLCertificates::certType : type (csr / cert)
@@ -230,7 +235,7 @@ private:
      * @brief display_ssl_err : display ssl errors in new windows
      * @param message : additionnal message to display
      */
-    void display_ssl_err(QString message);
+    void display_ssl_err(QString message, SSLCertificates *key=nullptr);
     char buffer[MAX_CERT_SIZE]; //!< buffer for openssl BIO
     /**
      * @brief DisplayKey : display key in new windows
@@ -252,7 +257,7 @@ private:
      * @brief display_key_type in current Cert structure on labelDisplayKeyType.
      * @return QString key name;
      */
-    QString display_key_type();
+    QString display_key_type(SSLCertificates* key=nullptr);
     /**
      * @brief get_key_param : get key type and param (size, etc...) and put it in this->cert param
      * @return 0 on success, 1 on error (ex : ec of wrong type, etc...)
@@ -357,6 +362,10 @@ private slots:
     void on_pushButtonPushCert_clicked();
 
     void on_pushButtonSignCert_clicked();
+
+    void on_textEditCert_textChanged();
+
+    void on_textEditKey_textChanged();
 
 signals:
     //extension_button_del_on_clicked(int row);

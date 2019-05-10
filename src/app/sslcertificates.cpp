@@ -764,23 +764,23 @@ int SSLCertificates::get_cert_HUM(char* Skey,size_t maxlength) {
     return 0;
 }
 
-int SSLCertificates::get_CN_from_name(char* CN,size_t maxlength, X509_NAME2* certname)
+int SSLCertificates::get_DN_Elmt_from_name(char *CN, size_t maxlength, X509_NAME2 *certname, int NID)
 {
   int common_name_loc = -1;
    X509_NAME_ENTRY *common_name_entry = nullptr;
    ASN1_STRING *common_name_asn1 = nullptr;
 
-   // Find the position of the CN field in the Subject field of the certificate
-   common_name_loc = X509_NAME_get_index_by_NID(certname, NID_commonName, -1);
+   // Find the position of the field in the Subject field of the certificate
+   common_name_loc = X509_NAME_get_index_by_NID(certname, NID, -1);
    if (common_name_loc < 0) {
            return 1;
    }
-   // Extract the CN field
+   // Extract the field
    common_name_entry = X509_NAME_get_entry(certname, common_name_loc);
    if (common_name_entry == nullptr) {
            return 1;
    }
-   // Convert the CN field to a C string
+   // Convert the field to a C string
    common_name_asn1 = X509_NAME_ENTRY_get_data(common_name_entry);
    if (common_name_asn1 == nullptr) {
            return 1;
@@ -801,6 +801,59 @@ int SSLCertificates::get_CN_from_name(char* CN,size_t maxlength, X509_NAME2* cer
    strncpy_s(CN,maxlength,common_name_str,strlen(common_name_str));
    CN[strlen(common_name_str)]=0;
    return 0;
+}
+
+int SSLCertificates::get_CN_from_name(char* CN,size_t maxlength, X509_NAME2* certname)
+{
+  return this->get_DN_Elmt_from_name(CN,maxlength,certname,NID_commonName);
+}
+
+int SSLCertificates::get_cert_subject_from_name(certType certORcsr, std::string *oCN, std::string *oC, std::string *oS,
+                                                std::string *oL, std::string *oO, std::string *oOU,
+                                                std::string *omail)
+{
+  size_t maxlength=this->subjectElmntMaxSize;
+  char buffer[this->subjectElmntMaxSize];
+  X509_NAME2* certname;
+  switch(certORcsr)
+  {
+    case Certificate: certname=X509_get_subject_name(this->x509);break;
+    case CSR: certname=X509_REQ_get_subject_name(this->csr);break;
+    case NoCert: return 1;
+  }
+  *omail="";
+  if (this->get_DN_Elmt_from_name(buffer,maxlength,certname,CN_NID) == 0)
+  {
+    std::string CN(buffer);
+    size_t index = CN.find("/emailAddress=");
+    if (index == std::string::npos)
+    { // not found
+      oCN->assign(buffer);
+      *omail="";
+    }
+    else
+    {
+      *oCN=CN.substr(0,index);
+      *omail=CN.substr(index+14); // remove "/emailAddress"
+    }
+  }
+  else *oCN="";
+  if (this->get_DN_Elmt_from_name(buffer,maxlength,certname,C_NID) == 0)
+    oC->assign(buffer);
+  else *oC="";
+  if (this->get_DN_Elmt_from_name(buffer,maxlength,certname,S_NID) == 0)
+    oS->assign(buffer);
+  else *oS="";
+  if (this->get_DN_Elmt_from_name(buffer,maxlength,certname,L_NID) == 0)
+    oL->assign(buffer);
+  else *oL="";
+  if (this->get_DN_Elmt_from_name(buffer,maxlength,certname,O_NID) == 0)
+    oO->assign(buffer);
+  else *oO="";
+  if (this->get_DN_Elmt_from_name(buffer,maxlength,certname,OU_NID) == 0)
+    oOU->assign(buffer);
+  else *oOU="";
+  return 0;
 }
 
 int SSLCertificates::get_cert_CN(char* CN,size_t maxlength, X509* cert)
@@ -1300,6 +1353,33 @@ int SSLCertificates::x509_extension_add(std::string extensionNameI, std::string 
     this->extensionVal[this->extensionNum]=extensionValI;
     this->extensionCritical[this->extensionNum++]=extensionCriticalI;
     return 0;
+}
+
+int SSLCertificates::x509_extension_get(std::vector<SSLCertificates::x509Extension> *extensions)
+{
+  X509_EXTENSION * ext;
+  int extNID;
+  ASN1_OCTET_STRING * extValue;
+  int numExt=X509_get_ext_count(this->x509);
+  for (int i=0;i<numExt;i++)
+  {
+    x509Extension extVal;
+    ext=X509_get_ext(this->x509,i);
+    if (ext==nullptr) continue;
+
+    if (X509_EXTENSION_get_critical(ext)==1) extVal.critical=true;
+    else extVal.critical=false;
+    extValue=X509_EXTENSION_get_data(ext);
+    extNID=OBJ_obj2nid(X509_EXTENSION_get_object(ext));
+    BASIC_CONSTRAINTS* test;
+    AUTHORITY_KEYID *test2;
+    // TODO : get extensions and put it in the GUI. Seems every extension type has to be get by specific methods....
+    test=nullptr;
+    test2=nullptr;
+    extensions=nullptr;
+    // END TODO
+  }
+  return 0;
 }
 
 int SSLCertificates::add_ext(X509 *cert, int nid, const char *value)

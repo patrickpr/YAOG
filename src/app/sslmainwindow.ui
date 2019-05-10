@@ -720,14 +720,27 @@
           <widget class="QPushButton" name="pushButtonSignCert">
            <property name="geometry">
             <rect>
-             <x>270</x>
+             <x>289</x>
              <y>40</y>
-             <width>75</width>
+             <width>61</width>
              <height>23</height>
             </rect>
            </property>
            <property name="text">
             <string>Sign</string>
+           </property>
+          </widget>
+          <widget class="QCheckBox" name="checkBoxCertUpdate">
+           <property name="geometry">
+            <rect>
+             <x>220</x>
+             <y>40</y>
+             <width>61</width>
+             <height>17</height>
+            </rect>
+           </property>
+           <property name="text">
+            <string>Update</string>
            </property>
           </widget>
          </widget>
@@ -824,9 +837,9 @@
           <widget class="QLabel" name="labelDisplayKeyType">
            <property name="geometry">
             <rect>
-             <x>10</x>
+             <x>50</x>
              <y>50</y>
-             <width>81</width>
+             <width>151</width>
              <height>16</height>
             </rect>
            </property>
@@ -837,7 +850,7 @@
             <enum>Qt::RightToLeft</enum>
            </property>
            <property name="text">
-            <string>Type : Unknown</string>
+            <string>Unknown</string>
            </property>
            <property name="alignment">
             <set>Qt::AlignBottom|Qt::AlignLeading|Qt::AlignLeft</set>
@@ -867,6 +880,28 @@
            </property>
            <property name="text">
             <string>Test</string>
+           </property>
+          </widget>
+          <widget class="QLabel" name="labelDisplayKeyType_Static">
+           <property name="geometry">
+            <rect>
+             <x>10</x>
+             <y>50</y>
+             <width>41</width>
+             <height>16</height>
+            </rect>
+           </property>
+           <property name="focusPolicy">
+            <enum>Qt::WheelFocus</enum>
+           </property>
+           <property name="layoutDirection">
+            <enum>Qt::RightToLeft</enum>
+           </property>
+           <property name="text">
+            <string>Type :</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignBottom|Qt::AlignLeading|Qt::AlignLeft</set>
            </property>
           </widget>
          </widget>

@@ -50,6 +50,8 @@ private slots:
 
   void on_pushButtonSelectForP12_clicked();
 
+  void on_CStackWindow_rejected();
+
 protected slots:
     void select_cert();
 

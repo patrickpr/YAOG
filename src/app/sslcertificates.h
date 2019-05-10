@@ -43,6 +43,15 @@ public:
 
     enum keyTypes { KeyNone=-1, KeyRSA=1, KeyDSA=2 , KeyEC = 3};
     enum certType { NoCert=-1, Certificate=0, CSR=1};
+    static const size_t subjectElmntMaxSize=100;
+    enum certSubjectList {
+      CN_NID = NID_commonName,
+      C_NID = NID_countryName,
+      S_NID = NID_stateOrProvinceName,
+      L_NID = NID_localityName,
+      O_NID = NID_organizationName,
+      OU_NID = NID_organizationalUnitName,
+      email_NID = 0};
 
     /**
      * @brief set_key_params : set parameters for all keys
@@ -119,6 +128,15 @@ public:
      */
     int get_cert_HUM(char* Skey,size_t maxlength);
     /**
+     * @brief get_DN_Elmt_from_name
+     * @param char * CN : returned element name
+     * @param size_t maxlength
+     * @param  X509_NAME_st* certname
+     * @param NID int : NID of name element
+     * @return 0 = OK, 2 overflow, 1 error/not found.
+     */
+    int get_DN_Elmt_from_name(char* CN,size_t maxlength, X509_NAME2* certname, int NID);
+    /**
      * @brief get_CN_from_name
      * @param char * CN
      * @param size_t maxlength
@@ -126,6 +144,10 @@ public:
      * @return 0 = OK, 2 overflow, 1 error.
      */
     int get_CN_from_name(char* CN,size_t maxlength, X509_NAME2* certname);
+
+    int get_cert_subject_from_name(certType certORcsr,std::string* oCN, std::string* oC, std::string* oS,
+                                   std::string* oL, std::string* oO, std::string* oOU,
+                                   std::string* omail);
     /**
      * @brief get_cert_CN : get CN of certificate (copy of openssl wiki)
      * @param CN : CN of certificate
@@ -318,20 +340,70 @@ public:
     typedef struct x509Extension {
         char name[50]; //!< Name of extension
         int NID; //!< NID of extension
-        char values[200]; //!< possible values, comma separated
+        char values[500]; //!< possible values, comma separated
+        bool critical; //!< used to get extensions
     } x509Extension; //!< Structure for x509 extension array
     /* not declared as static if it can be read from openssl in future release */
     x509Extension X509ExtensionHelp[9] = {
-        {"basicConstraints",NID_basic_constraints,"CA:TRUE,CA:FALSE,pathlen:<num>"},
-        {"keyUsage",NID_key_usage,"digitalSignature,nonRepudiation,keyEncipherment,dataEncipherment,keyAgreement,keyCertSign,cRLSign,encipherOnly,decipherOnly"},
-        {"subjectAltName",NID_subject_alt_name,"URI:http://<site>,email:<mail>,IP:<IP4/6>"},
-        {"crlDistributionPoints",NID_crl_distribution_points,"URI:http://<site>"},
-        {"extendedKeyUsage",NID_ext_key_usage,"serverAuth,clientAuth,codeSigning,emailProtection,timeStamping,OCSPSigning,ipsecIKE,msCodeInd,msCodeCom,msCTLSign,msEFS"},
-        {"subjectKeyIdentifier",NID_subject_key_identifier,"<key>"},
-        {SN_authority_key_identifier,NID_authority_key_identifier,"keyid:<key>"},
-        {"certificatePolicies",NID_certificate_policies,"1.2.4.5"},
-        {"policyConstraints",NID_policy_constraints,"requireExplicitPolicy:<num>,inhibitPolicyMapping:<num>"} //!<list of common X509v3 extensions
+        {"basicConstraints",NID_basic_constraints,"CA:TRUE,CA:FALSE,pathlen:<num>",false},
+        {"keyUsage",NID_key_usage,"digitalSignature,nonRepudiation,keyEncipherment,dataEncipherment,keyAgreement,keyCertSign,cRLSign,encipherOnly,decipherOnly",false},
+        {"subjectAltName",NID_subject_alt_name,"URI:http://<site>,email:<mail>,IP:<IP4/6>",false},
+        {"crlDistributionPoints",NID_crl_distribution_points,"URI:http://<site>",false},
+        {"extendedKeyUsage",NID_ext_key_usage,"serverAuth,clientAuth,codeSigning,emailProtection,timeStamping,OCSPSigning,ipsecIKE,msCodeInd,msCodeCom,msCTLSign,msEFS",false},
+        {"subjectKeyIdentifier",NID_subject_key_identifier,"<key>",false},
+        {SN_authority_key_identifier,NID_authority_key_identifier,"keyid:<key>",false},
+        {"certificatePolicies",NID_certificate_policies,"1.2.4.5",false},
+        {"policyConstraints",NID_policy_constraints,"requireExplicitPolicy:<num>,inhibitPolicyMapping:<num>",false} //!<list of common X509v3 extensions
     };
+/* From : https://www.openssl.org/docs/man1.1.0/man3/X509V3_EXT_d2i.html
+
+ RFC5280
+ Basic Constraints                  NID_basic_constraints
+ Key Usage                          NID_key_usage
+ Extended Key Usage                 NID_ext_key_usage
+
+ Subject Key Identifier             NID_subject_key_identifier
+ Authority Key Identifier           NID_authority_key_identifier
+
+ Private Key Usage Period           NID_private_key_usage_period
+
+ Subject Alternative Name           NID_subject_alt_name
+ Issuer Alternative Name            NID_issuer_alt_name
+
+ Authority Information Access       NID_info_access
+ Subject Information Access         NID_sinfo_access
+
+ Name Constraints                   NID_name_constraints
+
+ Certificate Policies               NID_certificate_policies
+ Policy Mappings                    NID_policy_mappings
+ Policy Constraints                 NID_policy_constraints
+ Inhibit Any Policy                 NID_inhibit_any_policy
+
+ TLS Feature                        NID_tlsfeature
+
+ RFC5280
+ CRL Number                         NID_crl_number
+ CRL Distribution Points            NID_crl_distribution_points
+ Delta CRL Indicator                NID_delta_crl
+ Freshest CRL                       NID_freshest_crl
+ Invalidity Date                    NID_invalidity_date
+ Issuing Distribution Point         NID_issuing_distribution_point
+
+ OSCP
+ OCSP Nonce                         NID_id_pkix_OCSP_Nonce
+ OCSP CRL ID                        NID_id_pkix_OCSP_CrlID
+ Acceptable OCSP Responses          NID_id_pkix_OCSP_acceptableResponses
+ OCSP No Check                      NID_id_pkix_OCSP_noCheck
+ OCSP Archive Cutoff                NID_id_pkix_OCSP_archiveCutoff
+ OCSP Service Locator               NID_id_pkix_OCSP_serviceLocator
+ Hold Instruction Code              NID_hold_instruction_code
+
+RFC6962
+ CT Precertificate SCTs             NID_ct_precert_scts
+ CT Certificate SCTs                NID_ct_cert_scts
+*/
+
     int X509ExtensionHelpNum=8; //!< Number of X509ExtensionHelp
 
     /**
@@ -343,7 +415,12 @@ public:
      */
     int x509_extension_add(std::string extensionNameI, std::string extensionValI, int extensionCriticalI);
 
-
+    /**
+     * @brief x509_extension_get : get all X509v3 extensions from cert
+     * @param extensions vector<x509Extension> * : values returned
+     * @return 0 : success, 1 : error
+     */
+    int x509_extension_get(std::vector<x509Extension>* extensions);
 private:
 
     EVP_MD* useDigest; //!< Digest to use
