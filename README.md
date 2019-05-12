@@ -1,4 +1,7 @@
 # YAOG
+
+[![Join the chat at https://gitter.im/YAOG-chat/community](https://badges.gitter.im/YAOG-chat/community.svg)](https://gitter.im/YAOG-chat/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 Yet Another Openssl GUI : Qt base openssl GUI to create CSR, certificates, keys (RSA / DSA / EC), P12 etc...
 
 [![Gitter](https://badges.gitter.im/YAOG-chat/community.svg)](https://gitter.im/YAOG-chat/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
