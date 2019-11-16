@@ -2,6 +2,7 @@ Installation
 ===============
 
 Choose your version (latest is better) and download it [here](https://github.com/patrickpr/YAOG/releases)
+
 Just unzip and run the exe.
 All dependencies (SSL & Qt) are packaged inside the zip file.
 
