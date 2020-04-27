@@ -1115,6 +1115,7 @@ int SSLMainWindow::get_key_param()
 int SSLMainWindow::display_generated_key(QString* errordisplay)
 {
     int retcode;
+    std::string SKey;
     if (this->ui->checkBoxKeyPassEnable->isChecked())
     {
         QString keypassword=this->ui->lineEditKeyPass->text();
@@ -1129,7 +1130,7 @@ int SSLMainWindow::display_generated_key(QString* errordisplay)
             *errordisplay=tr("Cipher unknown");
             return 2;
         }
-        if ((retcode = this->getCert()->get_key_PEM_enc(this->buffer,MAX_CERT_SIZE,keypassword.toLatin1().data()))!=0)
+        if ((retcode = this->getCert()->get_key_PEM(&SKey,keypassword.toLatin1().toStdString()))!=0)
         {
             switch (retcode)
             {
@@ -1150,7 +1151,7 @@ int SSLMainWindow::display_generated_key(QString* errordisplay)
     }
     else
     {
-        if ((retcode = this->getCert()->get_key_PEM(this->buffer,MAX_CERT_SIZE))!=0)
+        if ((retcode = this->getCert()->get_key_PEM(&SKey))!=0)
         {
             switch (retcode)
             {
@@ -1170,7 +1171,7 @@ int SSLMainWindow::display_generated_key(QString* errordisplay)
         }
     }
 
-    this->display_key(this->buffer,false);
+    this->display_key(QString::fromStdString(SKey),false);
     return 0;
 }
 
@@ -1223,6 +1224,7 @@ void SSLWorker::createkey()
 
 void SSLMainWindow::DisplayKey()
 {
+    std::string SKey;
     // Read key for GUI to openssl structure
     switch (this->read_pem_to_openssl())
     {
@@ -1236,7 +1238,7 @@ void SSLMainWindow::DisplayKey()
     }
 
     // Read key from openssl strcture to human readable format.
-    switch (this->getCert()->get_key_HUM(this->buffer,MAX_CERT_SIZE))
+    switch (this->getCert()->get_key_HUM(&SKey))
     {
     case 1:
         this->display_ssl_err(tr("Copy error in SSL"));
@@ -1250,7 +1252,7 @@ void SSLMainWindow::DisplayKey()
     }
 
     // Show key (use error dialog...)
-    DialogSSLErrors * ErrDlg=new DialogSSLErrors (tr("Key Display"),this->buffer,this);
+    DialogSSLErrors * ErrDlg=new DialogSSLErrors (tr("Key Display"),QString::fromStdString(SKey),this);
     ErrDlg->setWindowTitle(tr("Display"));
     ErrDlg->setModal(true);
     ErrDlg->exec();
@@ -1261,6 +1263,7 @@ void SSLMainWindow::DisplayKey()
 
 void SSLMainWindow::EncryptKey()
 {
+    std::string SKey;
     // Read key for GUI to openssl structure
     switch (this->read_pem_to_openssl())
     {
@@ -1293,19 +1296,20 @@ void SSLMainWindow::EncryptKey()
     if (password.toLatin1().size() > PASSWORD_MAX_LENGTH) exit (2); // Stupidity is punished :-)
 
     // get the encrypted form of the key
-    if (this->getCert()->get_key_PEM_enc(static_cast<char*>(this->buffer),MAX_CERT_SIZE,password.toLatin1().data()) != 0)
+    if (this->getCert()->get_key_PEM(&SKey,password.toLatin1().toStdString()) != 0)
     {
         password="00000000000000";
         this->display_ssl_err(tr("Error encrypt private key"));
         return;
     }
-    this->display_key(this->buffer,false);
+    this->display_key(QString::fromStdString(SKey),false);
     // cleanup
     password="00000000000000";
 }
 
 void SSLMainWindow::DecryptKey()
 {
+    std::string SKey;
     switch (this->read_pem_to_openssl())
     {
     case 1: {
@@ -1316,10 +1320,10 @@ void SSLMainWindow::DecryptKey()
         this->display_ssl_err(tr("Error parsing private key"));
         return;
     }
-    switch (this->getCert()->get_key_PEM(this->buffer,MAX_CERT_SIZE))
+    switch (this->getCert()->get_key_PEM(&SKey))
     {
     case 0: // no error
-        this->display_key(this->buffer,false);
+        this->display_key(QString::fromStdString(SKey),false);
         break;
     case 1:
         QMessageBox::warning(this,tr("Error"),tr("Copy error in SSL"));
@@ -1338,6 +1342,7 @@ void SSLMainWindow::DecryptKey()
 void SSLMainWindow::DlgGenerateKeyFinished()
 {
     int retcode;
+    std::string SKey;
     QString error;
     this->flush_async_dialog();
     if ((this->getCert()->SSLError !=0)||(SSLCertificates::abortnow != 0)) // In case of generate error / cancel, just close
@@ -1356,10 +1361,10 @@ void SSLMainWindow::DlgGenerateKeyFinished()
         return;
     }
 
-    switch (this->getCert()->get_key_HUM(this->buffer,MAX_CERT_SIZE))
+    switch (this->getCert()->get_key_HUM(&SKey))
     {
     case 0: // no error
-        emit add_text_output(this->buffer);
+        emit add_text_output(QString::fromStdString(SKey));
         break;
     case 1:
         emit add_text_output(tr("Copy error in SSL"));
@@ -1590,6 +1595,7 @@ void SSLMainWindow::on_pushButtonLoadPKCS12_clicked()
 void SSLMainWindow::DlgPKCS12_Finished(bool Cancel, bool MainCertImport, int caCertImport)
 {
   int retcode;
+  std::string SKey;
   if ( ! Cancel)
   {
     if (MainCertImport)
@@ -1612,7 +1618,7 @@ void SSLMainWindow::DlgPKCS12_Finished(bool Cancel, bool MainCertImport, int caC
         this->display_cert(this->buffer,false);
         ui->radioButtonDisplayCertificate->setChecked(true);
         /** Get Key */
-        if ((retcode= this->getCert()->get_key_PEM(this->buffer,MAX_CERT_SIZE)) != 0)
+        if ((retcode= this->getCert()->get_key_PEM(&SKey)) != 0)
         {
            switch(retcode)
            {
@@ -1626,7 +1632,7 @@ void SSLMainWindow::DlgPKCS12_Finished(bool Cancel, bool MainCertImport, int caC
         }
         else
         {
-          this->display_key(this->buffer,true);
+          this->display_key(QString::fromStdString(SKey),true);
         }
 
       }

@@ -14,7 +14,7 @@ class DialogX509v3Extention : public QDialog
     Q_OBJECT
 
 public:
-    explicit DialogX509v3Extention(QWidget *parent = 0);
+    explicit DialogX509v3Extention(QWidget *parent = nullptr);
     ~DialogX509v3Extention();
 
 private:

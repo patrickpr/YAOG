@@ -13,7 +13,7 @@ class DialogCertDate : public QDialog
     Q_OBJECT
 
 public:
-    explicit DialogCertDate(QWidget *parent = 0);
+    explicit DialogCertDate(QWidget *parent = nullptr);
     ~DialogCertDate();
 private:
     void calcDays();

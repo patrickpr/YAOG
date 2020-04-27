@@ -52,7 +52,7 @@ void CStackWindow::pkcs12Selection(bool isOn)
 void CStackWindow::stack_empty(bool empty)
 {
    this->ui->pushButtonPurge->setDisabled(empty);
-   if (this->ui->listWidget->selectedItems().size() == 0) empty=true;
+   if (this->ui->listWidget->selectedItems().isEmpty()) empty=true;
    this->ui->pushButtonDelete->setDisabled(empty);
    this->ui->pushButtonPop->setDisabled(empty);
    this->ui->pushButtonSelectSign->setDisabled(empty);
@@ -60,15 +60,8 @@ void CStackWindow::stack_empty(bool empty)
 
 void CStackWindow::select_cert()
 {
-  bool empty;
-  if (this->ui->listWidget->selectedItems().size() == 0)
-  {
-    empty=true;
-  }
-  else
-  {
-    empty=false;
-  }
+  bool empty = this->ui->listWidget->selectedItems().isEmpty();
+
   this->ui->pushButtonDelete->setDisabled(empty);
   this->ui->pushButtonPop->setDisabled(empty);
   this->ui->pushButtonSelectSign->setDisabled(empty);
@@ -78,7 +71,7 @@ void CStackWindow::update_list()
 {
   this->ui->listWidget->clear();
 
-  this->stack_empty((this->stack.size() == 0));
+  this->stack_empty(this->stack.isEmpty());
 
   for (int i = 0; i < this->stack.size(); ++i)
   {
@@ -141,7 +134,7 @@ void CStackWindow::on_pushButtonDelete_clicked()
     QList<QListWidgetItem *> selected;
 
     selected=this->ui->listWidget->selectedItems();
-    if (selected.size()==0) return;
+    if (selected.isEmpty()) return;
     this->stack.removeAt(this->ui->listWidget->row(selected[0]));
     this->update_list();
 }
@@ -151,7 +144,7 @@ void CStackWindow::on_pushButtonPop_clicked()
   QList<QListWidgetItem *> selected;
   // get selected item
   selected=this->ui->listWidget->selectedItems();
-  if (selected.size()==0) return;
+  if (selected.isEmpty()) return;
   emit pop_certificate(
         this->stack[
           this->ui->listWidget->row(selected[0])
@@ -163,7 +156,7 @@ void CStackWindow::on_pushButtonSelectSign_clicked()
   QList<QListWidgetItem *> selected;
   // get selected item
   selected=this->ui->listWidget->selectedItems();
-  if (selected.size()==0) return;
+  if (selected.isEmpty()) return;
   CertData certSel=this->stack[this->ui->listWidget->row(selected[0])];
   if (certSel.cert_type != certificate || certSel.key_type == SSLCertificates::KeyNone)
   {
@@ -186,7 +179,7 @@ void CStackWindow::on_pushButtonSelectForP12_clicked()
   QList<QListWidgetItem *> selected;
   // get selected item
   selected=this->ui->listWidget->selectedItems();
-  if (selected.size()==0) return;
+  if (selected.isEmpty()) return;
   CertData certSel=this->stack[this->ui->listWidget->row(selected[0])];
   if (certSel.cert_type != certificate)
   {

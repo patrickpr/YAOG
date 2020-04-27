@@ -26,6 +26,7 @@
 #define OPENSSL_BAD_DECRYPT_ERR 100
 #define MAX_SSL_ERRORS 100  // max number of ssl errors to store
 #define MAX_SSL_ERRORS_BUF_SIZE 2000
+#define MAX_IO_BUFFER_SIZE 30000
 
 typedef struct X509_name_st X509_NAME2; // To bypass wincrypt definition.
 
@@ -62,7 +63,16 @@ public:
      */
     int set_key_params(unsigned int keyparam, int keytype, char*ec = nullptr);
     int create_key();
-    int get_key_PEM(char* Skey,size_t maxlength);
+
+    /**
+     * @brief get_key_PEM : get key in PEM format
+     * @param Skey string key in PEM format
+     * @param password string optionnal : password to encrypt key (must set cipher first)
+     * @return 0 : OK, 1 : error (saved in SSL error), 3 : too big
+     */
+    int get_key_PEM(std::string * Skey, std::string password="");
+
+    int get_key_HUM(std::string * Skey);
     int get_key_HUM(char* Skey,size_t maxlength);
     /**
      * @brief Reads key in PEM format and put it in EVP_PKEY structure
@@ -71,7 +81,7 @@ public:
      * @return 0 on success, 1:Error reading key (error codes set), 2: invalid /missing password 3: unknown key type
      */
     int set_key_PEM(const char* Skey, char *password);
-    int get_key_PEM_enc(char *Skey, size_t maxlength, char* password);
+
     /**
      * @brief get_key_type (key must be loaded)
      * @return key type KeyRSA/DSA/EC or 0 on error

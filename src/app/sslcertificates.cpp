@@ -901,20 +901,35 @@ int SSLCertificates::set_cert_PEM(const char* Skey, const char* password)
     return 0;
 }
 
-int SSLCertificates::get_key_PEM(char *Skey, size_t maxlength) {
-
+int SSLCertificates::get_key_PEM(std::string * Skey, std::string password)
+{
     BIO *mem = BIO_new(BIO_s_mem());
     BUF_MEM *bptr;
+
     switch (this->keyType)
     {
-    case KeyDSA:   // PEM_write_bio_DSAPrivateKey
+    case KeyDSA: // PEM_write_bio_DSAPrivateKey
     case KeyRSA:
     case KeyEC:
-        if (!PEM_write_bio_PrivateKey(mem,this->pkey,nullptr,nullptr,0,nullptr, nullptr))
+        if (password=="")
         {
-            this->get_ssl_errors();
-            BIO_free(mem);
-            return 3;
+          if (!PEM_write_bio_PrivateKey(mem,this->pkey,nullptr,nullptr,0,nullptr, nullptr))
+          {
+              this->get_ssl_errors();
+              BIO_free(mem);
+              return 3;
+          }
+        }
+        else
+        {
+          if (PEM_write_bio_PKCS8PrivateKey(mem,this->pkey,this->useCipher,
+                                            const_cast<char* >(password.c_str()),
+                                            static_cast<int>(password.size()),nullptr, nullptr) == 0)
+          {
+              this->get_ssl_errors();
+              BIO_free(mem);
+              return 3;
+          }
         }
         break;
     default:
@@ -926,18 +941,17 @@ int SSLCertificates::get_key_PEM(char *Skey, size_t maxlength) {
     BIO_get_mem_ptr(mem, &bptr);
 
     if (bptr->length == 0) {
-        BIO_free(mem);return 1;
+        this->get_ssl_errors();BIO_free(mem);return 1;
     }
-    if (bptr->length >= maxlength) {
+    if (bptr->length >= MAX_IO_BUFFER_SIZE) {
         BIO_free(mem);return 2;
     }
-    strncpy_s(Skey,maxlength,bptr->data,bptr->length);
-    Skey[bptr->length+1]='\0';
+    Skey->assign(bptr->data,bptr->length);
     BIO_free(mem);
     return 0;
 }
 
-int SSLCertificates::get_key_HUM(char* Skey,size_t maxlength) {
+int SSLCertificates::get_key_HUM(std::string * Skey) {
 
     BIO *mem = BIO_new(BIO_s_mem());
     BUF_MEM *bptr;
@@ -950,7 +964,7 @@ int SSLCertificates::get_key_HUM(char* Skey,size_t maxlength) {
         if (RSA_print(mem,pkey->pkey.rsa,0)==0) {
 #endif
           this->get_ssl_errors();
-            strncpy_s(Skey,maxlength,"Error printing RSA key",maxlength);
+            *Skey="Error printing RSA key";
             return 3;
         }
         break;
@@ -962,7 +976,7 @@ int SSLCertificates::get_key_HUM(char* Skey,size_t maxlength) {
 #endif
         {
             this->get_ssl_errors();
-            strncpy_s(Skey,maxlength,"Error printing EC key",maxlength);
+            *Skey="Error printing EC key";
             return 3;
         }
         break;
@@ -974,13 +988,13 @@ int SSLCertificates::get_key_HUM(char* Skey,size_t maxlength) {
 #endif
         {
             this->get_ssl_errors();
-            strncpy_s(Skey,maxlength,"Error printing DSA key",maxlength);
+            *Skey="Error printing DSA key";
             return 3;
         }
         break;
     default:
         this->get_ssl_errors();
-        strncpy_s(Skey,maxlength,"Unknown key",maxlength);
+        *Skey="Unknown key";
         return 3;
     }
 
@@ -990,16 +1004,14 @@ int SSLCertificates::get_key_HUM(char* Skey,size_t maxlength) {
         this->get_ssl_errors();
         BIO_free(mem);return 1;
     }
-    if (bptr->length >= maxlength) {
+    if (bptr->length >= MAX_IO_BUFFER_SIZE) {
         this->get_ssl_errors();
         BIO_free(mem);return 2;
     }
-    strncpy_s(Skey,maxlength,bptr->data,bptr->length);
-    Skey[bptr->length]='\0';
+    Skey->assign(bptr->data,bptr->length);
     BIO_free(mem);
     return 0;
 }
-
 
 int SSLCertificates::set_key_PEM(const char* Skey, char* password=nullptr)
 {
@@ -1106,44 +1118,6 @@ int SSLCertificates::get_key_params(keyTypes* keytype,std::string &keyTypeString
     }
     keyTypeString = "Unkown";
     return 1;
-}
-
-int SSLCertificates::get_key_PEM_enc(char *Skey, size_t maxlength, char* password)
-{
-    BIO *mem = BIO_new(BIO_s_mem());
-    BUF_MEM *bptr;
-
-    switch (this->keyType)
-    {
-    case KeyDSA: // PEM_write_bio_DSAPrivateKey
-    case KeyRSA:
-    case KeyEC:
-        if (PEM_write_bio_PKCS8PrivateKey(mem,this->pkey,this->useCipher,
-                                          password,static_cast<int>(strlen(password)),nullptr, nullptr) == 0)
-        {
-            this->get_ssl_errors();
-            BIO_free(mem);
-            return 3;
-        }
-        break;
-    default:
-        BIO_free(mem);
-        return 3;
-    }
-
-
-    BIO_get_mem_ptr(mem, &bptr);
-
-    if (bptr->length == 0) {
-        this->get_ssl_errors();BIO_free(mem);return 1;
-    }
-    if (bptr->length >= maxlength) {
-        BIO_free(mem);return 2;
-    }
-    strncpy_s(Skey,maxlength,bptr->data,bptr->length+1);
-    Skey[bptr->length+1]='\0';
-    BIO_free(mem);
-    return 0;
 }
 
 int SSLCertificates::save_to_pkcs12(FILE *file, char* name,char* pass)

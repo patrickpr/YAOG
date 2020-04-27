@@ -20,7 +20,7 @@ DialogCertDate::~DialogCertDate()
 
 void DialogCertDate::calcDays()
 {
-    QDateTime start,end,valid;
+    QDateTime start,end;
     start=this->ui->dateTimeEditStartDate->dateTime();
     end=this->ui->dateTimeEditEndValid->dateTime();
     QString duration = "Validity : " + QString::number(start.daysTo(end)) + " days.";
