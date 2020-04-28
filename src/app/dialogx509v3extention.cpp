@@ -40,9 +40,9 @@ void DialogX509v3Extention::on_pushButtonOKExtension_clicked()
 
     for (i=0; i<this->Cert->X509ExtensionHelpNum;i++)
     {
-        if (extName == this->Cert->X509ExtensionHelp[i].name)
+        if (extName == QString::fromStdString(this->Cert->X509ExtensionHelp[i].name))
         {
-            value=this->Cert->X509ExtensionHelp[i].values;
+            value=QString::fromStdString(this->Cert->X509ExtensionHelp[i].values);
             valueList=value.split(",");
             for (j=0; j<valueList.count();j++)
             {
@@ -84,7 +84,7 @@ void DialogX509v3Extention::reset_form()
         this->ui->comboBoxNameChooser->removeItem(0);
     for (int i=0; i<this->Cert->X509ExtensionHelpNum;i++)
     {
-        ui->comboBoxNameChooser->addItem(this->Cert->X509ExtensionHelp[i].name,i);
+        ui->comboBoxNameChooser->addItem(QString::fromStdString(this->Cert->X509ExtensionHelp[i].name),i);
     }
     ui->checkBoxCritical->setEnabled(false);
     ui->comboBoxExtensionValue->setEnabled(false);

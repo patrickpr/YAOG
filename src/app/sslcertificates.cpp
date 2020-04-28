@@ -120,7 +120,7 @@ SSLCertificates::~SSLCertificates()
 
 void SSLCertificates::print_ssl_errors(char* buffer,size_t size)
 {
-    char linebuf[200]="";
+    char linebuf[200]=""; // TODO : dynamic size with max size
     if (this->SSLErrorNum == -1)
     {
         strcpy_s(buffer,MAX_SSL_ERRORS_BUF_SIZE,"No current SSL errors ");
@@ -1341,16 +1341,52 @@ int SSLCertificates::x509_extension_get(std::vector<SSLCertificates::x509Extensi
     ext=X509_get_ext(this->x509,i);
     if (ext==nullptr) continue;
 
-    if (X509_EXTENSION_get_critical(ext)==1) extVal.critical=true;
-    else extVal.critical=false;
+    extVal.critical = (X509_EXTENSION_get_critical(ext)==1) ? true : false;
     extValue=X509_EXTENSION_get_data(ext);
     extNID=OBJ_obj2nid(X509_EXTENSION_get_object(ext));
-    BASIC_CONSTRAINTS* test;
-    AUTHORITY_KEYID *test2;
+    extVal.NID=extNID;
+    switch (extNID)
+    {
+      case NID_subject_alt_name:
+      {
+        GENERAL_NAMES *names = nullptr;
+        names = (GENERAL_NAMES *) X509V3_EXT_d2i(ext);
+        if (names == nullptr) continue;
+        int numAltNames=sk_GENERAL_NAME_num(names);
+        for (int i=0;i<numAltNames;i++)
+        {
+           GENERAL_NAME *currentName = sk_GENERAL_NAME_value(names, i);
+           const char *AltName;
+           std::string comma=(extVal.values.empty())?"":", ";
+           switch (currentName->type)
+           {
+             case GEN_DNS:
+               AltName = (const char *) ASN1_STRING_get0_data(currentName->d.dNSName);
+               extVal.values += comma + "DNS:" + std::string(AltName);
+             break;
+             case GEN_URI:
+               AltName = (const char *) ASN1_STRING_get0_data(currentName->d.uniformResourceIdentifier);
+               extVal.values += comma + "URI:" + std::string(AltName);
+             break;
+           }
+        }
+        extVal.name="subjectAltName";
+        if ( ! extVal.values.empty() )
+        {
+          extensions->push_back(extVal);
+        }
+        sk_GENERAL_NAME_pop_free(names, GENERAL_NAME_free); // Free stack
+      }
+      break;
+      case NID_basic_constraints:
+      break;
+      default:
+      break;
+    }
+
+    //BASIC_CONSTRAINTS* test;
+    //AUTHORITY_KEYID *test2;
     // TODO : get extensions and put it in the GUI. Seems every extension type has to be get by specific methods....
-    test=nullptr;
-    test2=nullptr;
-    extensions=nullptr;
     // END TODO
   }
   return 0;
@@ -1394,96 +1430,6 @@ int SSLCertificates::add_ext_bytxt(X509 *cert, const char* nid, const char *valu
     X509_add_ext(cert,ex,-1);
     X509_EXTENSION_free(ex);
     return 1;
-}
-
-int SSLCertificates::mkcert(X509 **x509p, EVP_PKEY **pkeyp, int bits, int serial, int days)
-{
-    X509 *x;
-    EVP_PKEY *pk;
-    RSA *rsa;
-    X509_NAME2 *x509Name;
-
-    if ((pkeyp == nullptr) || (*pkeyp == nullptr))
-        {
-        if ((pk=EVP_PKEY_new()) == nullptr)
-            {
-            //abort();
-            return(0);
-            }
-        }
-    else
-        pk= *pkeyp;
-
-    if ((x509p == nullptr) || (*x509p == nullptr))
-        {
-        if ((x=X509_new()) == nullptr)
-            goto err;
-        }
-    else
-        x= *x509p;
-
-    rsa=RSA_generate_key(bits,RSA_F4,nullptr,nullptr);
-
-    if (!EVP_PKEY_assign_RSA(pk,rsa))
-
-    {
-        //abort();
-        goto err;
-        }
-    rsa=nullptr;
-
-    X509_set_version(x,2);
-    ASN1_INTEGER_set(X509_get_serialNumber(x),serial);
-    X509_gmtime_adj(X509_get_notBefore(x),0);
-    X509_gmtime_adj(X509_get_notAfter(x),static_cast<long>(60*60*24*days));
-    X509_set_pubkey(x,pk);
-
-    x509Name=X509_get_subject_name(x);
-
-    /* This function creates and adds the entry, working out the
-     * correct string type and performing checks on its length.
-     * Normally we'd check the return value for errors...
-     */
-    X509_NAME_add_entry_by_txt(x509Name,"C",
-                MBSTRING_ASC, reinterpret_cast<const unsigned char *>("UK"), -1, -1, 0);
-    X509_NAME_add_entry_by_txt(x509Name,"CN",
-                MBSTRING_ASC, reinterpret_cast<const unsigned char *>("OpenSSL Group"), -1, -1, 0);
-
-    /* Its self signed so set the issuer name to be the same as the
-     * subject.
-     */
-    X509_set_issuer_name(x,x509Name);
-
-    /* Add various extensions: standard extensions */
-    this->add_ext(x, NID_basic_constraints, "critical,CA:TRUE");
-    this->add_ext(x, NID_key_usage, "critical,keyCertSign,cRLSign");
-
-    this->add_ext(x, NID_subject_key_identifier, "hash");
-
-    /* Some Netscape specific extensions */
-    this->add_ext(x, NID_netscape_cert_type, "sslCA");
-
-    this->add_ext(x, NID_netscape_comment, "example comment extension");
-
-
-#ifdef CUSTOM_EXT
-    /* to add extension based on existing */
-    {
-        int nid;
-        nid = OBJ_create("1.2.3.4", "MyAlias", "My Test Alias Extension");
-        X509V3_EXT_add_alias(nid, NID_netscape_comment);
-        add_ext(x, nid, "example comment alias");
-    }
-#endif
-
-    if (!X509_sign(x,pk,EVP_md5()))
-        goto err;
-
-    *x509p=x;
-    *pkeyp=pk;
-    return(1);
-err:
-    return(0);
 }
 
 int SSLCertificates::get_key_type()
@@ -1567,7 +1513,8 @@ int SSLCertificates::check_key_cert_match()
     if (this->check_key() != 0)
         return 2;
     // init context
-    SSL_CTX* ctx = SSL_CTX_new( TLSv1_2_client_method()); //  TLSv1_client_method());
+    //SSL_CTX* ctx = SSL_CTX_new( TLSv1_2_client_method()); //  TLSv1_client_method());
+    SSL_CTX* ctx = SSL_CTX_new( TLS_client_method()); //  TLSv1_client_method());
     if (ctx==nullptr)
       {
         this->get_ssl_errors();

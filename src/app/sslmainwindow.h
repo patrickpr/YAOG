@@ -156,10 +156,14 @@ public:
      */
     extensionElmt *addExtensionElmt(QString label, unsigned int NID, bool critical, QString value);
     /**
-     * @brief delete_extension and errase is from the widget table
+     * @brief delete_extension and erase it from the widget table
      * @param value of index of extension element as this is called throught a signal mapping
      */
     void delete_extension(int index);
+    /**
+     * @brief delete_All_extensions Delete all extensions
+     */
+    void delete_All_extensions();
     /**
      * @brief addExtensionLine : adds extension in the wdget table
      * @param elmt to add

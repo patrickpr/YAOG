@@ -902,6 +902,24 @@ void SSLMainWindow::on_pushButtonAddExtension_clicked()
     Dlg->exec();
 }
 
+void SSLMainWindow::delete_All_extensions()
+{
+  for (int i=0;i<this->extensionList.count();i++)
+  {
+        extensionElmt *elmt=this->extensionList.at(i);
+        this->ui->TWExtensions->removeRow(elmt->row);
+        this->extensionList.removeAt(i);
+        delete elmt->critical;
+        delete elmt->labelWidget;
+        delete elmt->deleteBtn;
+        delete elmt->deleteBtnwdglayout;
+        delete elmt->criticallayout ;
+        delete elmt->value;
+        delete elmt;
+        break;
+  }
+}
+
 /**********************    Key buttons and utilities   *****************************/
 /********** GUi events ************/
 void SSLMainWindow::on_pushButtonTestKey_clicked()
@@ -2073,8 +2091,16 @@ void SSLMainWindow::on_textEditCert_textChanged()
   }
   if (this->ui->checkBoxCertUpdate->isChecked() == false)
     return;
-    // Check if certificate or CSR
-  //qDebug()<<"Cert on change activated";
+
+  if (this->ui->textEditCert->toPlainText().isEmpty())
+  {
+    qDebug() << "Empty cert";
+    return;
+  }
+  // Empty extensions
+  this->delete_All_extensions();
+
+  // Check if certificate or CSR
   SSLCertificates * test_cert=nullptr;
   this->init_cert(&test_cert);
   if (this->read_cert_pem_to_openssl(SSLCertificates::Certificate,this->ui->textEditCert->toPlainText(),test_cert) == 0)
@@ -2085,6 +2111,13 @@ void SSLMainWindow::on_textEditCert_textChanged()
     if (retcode !=0)
     {
       qDebug() << " Retcode error in DN read : " << retcode;
+    }
+    std::vector<SSLCertificates::x509Extension> extensions;
+    test_cert->x509_extension_get(&extensions);
+    for (unsigned long long i=0;i<extensions.size();i++)
+    { // TODO : extensions import
+      qDebug() << "Extension " << QString::fromStdString(extensions[i].name) << " : " << QString::fromStdString(extensions[i].values);
+      this->add_extension(QString::fromStdString(extensions[i].name),QString::fromStdString(extensions[i].values),extensions[i].critical);
     }
   }
   else if (this->read_cert_pem_to_openssl(SSLCertificates::CSR,this->ui->textEditCert->toPlainText(),test_cert) == 0)
@@ -2119,9 +2152,12 @@ void SSLMainWindow::on_textEditKey_textChanged()
     this->key_update=true;
     return;
   }
-    // Check if certificate or CSR
-  //qDebug()<<"Key on change activated";
 
+  //qDebug()<<"Key on change activated";
+  if (this->ui->textEditKey->toPlainText().isEmpty())
+  {
+    return;
+  }
   this->ui->labelDisplayKeyType->setText(tr("Not Valid"));
   // Create cert object
   SSLCertificates * test_key=nullptr;

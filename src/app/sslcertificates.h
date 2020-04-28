@@ -348,16 +348,16 @@ public:
 
     /* X509 v3 extentions helper */
     typedef struct x509Extension {
-        char name[50]; //!< Name of extension
+        std::string name; //!< Name of extension
         int NID; //!< NID of extension
-        char values[500]; //!< possible values, comma separated
-        bool critical; //!< used to get extensions
+        std::string values; //!< possible values, comma separated
+        bool critical; //!< Set if extension is critical
     } x509Extension; //!< Structure for x509 extension array
     /* not declared as static if it can be read from openssl in future release */
     x509Extension X509ExtensionHelp[9] = {
         {"basicConstraints",NID_basic_constraints,"CA:TRUE,CA:FALSE,pathlen:<num>",false},
         {"keyUsage",NID_key_usage,"digitalSignature,nonRepudiation,keyEncipherment,dataEncipherment,keyAgreement,keyCertSign,cRLSign,encipherOnly,decipherOnly",false},
-        {"subjectAltName",NID_subject_alt_name,"URI:http://<site>,email:<mail>,IP:<IP4/6>",false},
+        {"subjectAltName",NID_subject_alt_name,"DNS:<site>,URI:http://<site>,email:<mail>,IP:<IP4/6>",false},
         {"crlDistributionPoints",NID_crl_distribution_points,"URI:http://<site>",false},
         {"extendedKeyUsage",NID_ext_key_usage,"serverAuth,clientAuth,codeSigning,emailProtection,timeStamping,OCSPSigning,ipsecIKE,msCodeInd,msCodeCom,msCTLSign,msEFS",false},
         {"subjectKeyIdentifier",NID_subject_key_identifier,"<key>",false},
@@ -489,7 +489,6 @@ private:
     BIO *bio_err; // TODO SEE if needed as declared in every functions
     char* bio_buf_error; // TODO SEE if needed (see above)
 
-    int mkcert(X509 **x509p, EVP_PKEY **pkeyp, int bits, int serial, int days);
     int add_ext(X509 *cert, int nid, const char *value);
     int add_ext_bytxt(X509 *cert, const char *nid, const char *value);
 
