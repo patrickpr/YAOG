@@ -55,6 +55,7 @@ copy <openssl>/include/openssl/* <YAOG>/src/openssl/include/openssl/
 copy <openssl>/ms/applink.c <YAOG>/src/openssl/include/openssl/
 ```
 In applink.c, line 104 to 127, force conversion to (void*) or there will be an error at compile time : 
+
 Notepad++ regexp replace : `(.*) = (.*)  ->   \1 = \(void*\) \2`
 ```
 copy <openssl>/libcrypto* <YAOG>/src/openssl/lib/
@@ -67,6 +68,7 @@ Compile with Qt
 Open project file 'YetAnotherOpensslGui.pro'
 
 Create a target : Desktop Qt `<version>` MinGW 64-bit
+
 Set target directory to `<YAOG-Bin>`
 
 Compile project !
@@ -83,9 +85,9 @@ In `<YAOG-Bin>` directory in CLI, run :
 * Add mingw DLL
 
 From directory : `C:\Qt\Tools\mingw<version>_64\bin copy to <YAOG-Bin>` : 
-	- libgcc_s_seh-1.dll
-	- libstdc++-6.dll
-	- libwinpthread-1.dll
+** libgcc_s_seh-1.dll
+** libstdc++-6.dll
+** libwinpthread-1.dll
 	
 * Add compiled openssl DLL 
 
