@@ -15,15 +15,15 @@ Paths
 -----
 
 Following paths are used : 
-* NASM path <NASM> : main directory where you installed NASM
-* OpenSSL path <openssl> : Where you decompressed OpenSSL source
-* Yaog source path <YAOG> : Where you put the YAOG source
-* Yaog binary path <YAOG-Bin> : Where Qt compiled Yaog
+* NASM path `<NASM>` : main directory where you installed NASM
+* OpenSSL path `<openssl>` : Where you decompressed OpenSSL source
+* Yaog source path `<YAOG>` : Where you put the YAOG source
+* Yaog binary path `<YAOG-Bin>` : Where Qt compiled Yaog
 
 Compile OpenSSL
 ---------------
 
-Get the source from openssl (https://www.openssl.org/source/) and untar in <openssl>
+Get the source from openssl (https://www.openssl.org/source/) and untar in `<openssl>`
 
 You can read 'NOTES.WIN' for compile targets / needed software / etc...
 
@@ -40,7 +40,7 @@ Get Yaog source
 
 With Git or download master (https://github.com/patrickpr/YAOG/archive/master.zip) 
 
-Copy in <YAOG> directory.
+Copy in `<YAOG>` directory.
 
 Remove current openSSL includes : 
 ```
@@ -66,8 +66,8 @@ Compile with Qt
 
 Open project file 'YetAnotherOpensslGui.pro'
 
-Create a target : Desktop Qt <version> MinGW 64-bit
-Set target directory to <YAOG-Bin>
+Create a target : Desktop Qt `<version>` MinGW 64-bit
+Set target directory to `<YAOG-Bin>`
 
 Compile project !
 
@@ -76,20 +76,20 @@ Include DLLs
 
 * Qt DLLs
 
-In <YAOG-Bin> directory in CLI, run :
+In `<YAOG-Bin>` directory in CLI, run :
 
 `C:\Qt\<version>\<platform>_<32_64>\bin\windeployqt.exe --release YetAnotherOpensslGui.exe`
 
 * Add mingw DLL
 
-From directory : C:\Qt\Tools\mingw<version>_64\bin copy to <YAOG-Bin> : 
+From directory : `C:\Qt\Tools\mingw<version>_64\bin copy to <YAOG-Bin>` : 
 	- libgcc_s_seh-1.dll
 	- libstdc++-6.dll
 	- libwinpthread-1.dll
 	
 * Add compiled openssl DLL 
 
-Copy to <YAOG-Bin> 
+Copy to `<YAOG-Bin>` 
 
-- <openssl>/libcrypto-1_1-x64.dll
-- <openssl>/libssl-1_1-x64.dll
+- `<openssl>/libcrypto-1_1-x64.dll`
+- `<openssl>/libssl-1_1-x64.dll`
