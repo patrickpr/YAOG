@@ -233,7 +233,7 @@ int SSLCertificates::set_object(const char* oCN, const char* oC, const char* oS,
     return 0;
 }
 
-int SSLCertificates::set_key_params(unsigned int keyparam, int keytype, char* ec )
+int SSLCertificates::set_key_params(unsigned int keyparam, int keytype, std::string ec)
 {
     int i;
     switch (keytype)
@@ -245,7 +245,8 @@ int SSLCertificates::set_key_params(unsigned int keyparam, int keytype, char* ec
     case KeyEC:
         for (i=0;i< keyECListNum; i++)
         {
-            if (!strcmp(ec,this->keyECList[i]))
+            //if (!strcmp(ec,this->keyECList[i]))
+            if (ec == this->keyECList[i])
             {
                 this->keyECType=this->keyECListNIDCode[i];
                 this->keyType=keytype;
@@ -738,6 +739,31 @@ int SSLCertificates::get_cert_PEM(char *Skey, size_t maxlength, X509 *locX509) {
     return 0;
 }
 
+int SSLCertificates::get_cert_PEM(std::string& Skey,X509* locX509)
+{
+  BIO *mem = BIO_new(BIO_s_mem());
+  BUF_MEM *bptr;
+  // take local if not specified
+  if (locX509==nullptr) locX509=this->x509;
+
+  if (!PEM_write_bio_X509(mem,locX509))
+  {
+      this->get_ssl_errors();
+      BIO_free(mem);
+      return 3;
+  }
+
+  BIO_get_mem_ptr(mem, &bptr);
+
+  if (bptr->length == 0) {
+      BIO_free(mem);return 1;
+  }
+  Skey.assign(bptr->data,bptr->length);
+  Skey[bptr->length+1]='\0';
+  BIO_free(mem);
+  return 0;
+}
+
 int SSLCertificates::get_cert_HUM(char* Skey,size_t maxlength) {
 
     BIO *mem = BIO_new(BIO_s_mem());
@@ -1109,7 +1135,7 @@ int SSLCertificates::get_key_params(keyTypes* keytype,std::string &keyTypeString
           {
              if (ec_nid==this->keyECListNIDCode[i])
              {
-               ectype.assign(this->keyECList[i]);
+               ectype = this->keyECList[i];
              }
           }
       }
@@ -1221,7 +1247,10 @@ std::string SSLCertificates::get_pkcs12_certs_CN(unsigned int n)
 int SSLCertificates::get_pkcs12_certs_pem(unsigned int n,char *Skey, size_t maxlength)
 {
   if (n>=this->caListCerts.size()) return 10;
-  return get_cert_PEM(Skey,maxlength,this->caListCerts.at(n));
+  std::string certPEM;
+  int retcode = get_cert_PEM(certPEM,this->caListCerts.at(n));
+  strcpy_s(Skey,maxlength,certPEM.c_str());
+  return retcode;
 }
 
 int SSLCertificates::load_pkcs12(FILE *file, const char* password)

@@ -224,7 +224,7 @@ void SSLMainWindow::close_async_dialog() {
 void SSLMainWindow::display_cert(QString cert, bool update)
 {
     this->cert_update=update;
-  this->ui->textEditCert->setText(cert);
+    this->ui->textEditCert->setText(cert);
 }
 
 void SSLMainWindow::display_key(QString key, bool update)
@@ -792,6 +792,7 @@ void SSLMainWindow::DlgGenerateCertFinished()
     int retcode;
     QString error;
     this->flush_async_dialog();
+    std::string certPem;
 
     if ((this->getCert()->SSLError ==1)||(SSLCertificates::abortnow == 1)) // In case of generate error / cancel, just close
     {
@@ -807,10 +808,10 @@ void SSLMainWindow::DlgGenerateCertFinished()
         this->close_async_dialog();
         return;
     }
-    switch (this->getCert()->get_cert_PEM(this->buffer,MAX_CERT_SIZE))
+    switch (this->getCert()->get_cert_PEM(certPem))
     {
     case 0: // no error
-        this->display_cert(this->buffer);
+        this->display_cert(QString::fromStdString(certPem),false);
         this->ui->radioButtonDisplayCertificate->setChecked(true);
         switch (this->getCert()->get_cert_HUM(this->buffer,MAX_CERT_SIZE))
         {
@@ -964,7 +965,7 @@ void SSLMainWindow::on_comboBoxKeyType_currentIndexChanged(const QString &arg1)
         this->init_cert();
         ui->comboBoxKeySize->clear();
         for (int i=0;i< this->getCert()->keyECListNum;i++)
-            ui->comboBoxKeySize->addItem(this->getCert()->keyECList[i],
+            ui->comboBoxKeySize->addItem(QString::fromStdString(this->getCert()->keyECList[i]),
                                          this->getCert()->keyECListNIDCode[i]);
         this->deleteCert();
     }
@@ -1125,7 +1126,7 @@ int SSLMainWindow::get_key_param()
     {
         keytypeN=SSLCertificates::KeyEC;
         keyparam=this->ui->comboBoxKeySize->currentText();
-        return this->getCert()->set_key_params(0,keytypeN,keyparam.toLocal8Bit().data());
+        return this->getCert()->set_key_params(0,keytypeN,keyparam.toStdString());
     }
     return 1;
 }
@@ -1613,13 +1614,13 @@ void SSLMainWindow::on_pushButtonLoadPKCS12_clicked()
 void SSLMainWindow::DlgPKCS12_Finished(bool Cancel, bool MainCertImport, int caCertImport)
 {
   int retcode;
-  std::string SKey;
+  std::string SKey,SCert;
   if ( ! Cancel)
   {
     if (MainCertImport)
     {
       /** Get Certificate */
-      if ((retcode=this->getCert()->get_cert_PEM(this->buffer,MAX_CERT_SIZE)) != 0)
+      if ((retcode=this->getCert()->get_cert_PEM(SCert)) != 0)
       {
          switch(retcode)
          {
@@ -1633,7 +1634,7 @@ void SSLMainWindow::DlgPKCS12_Finished(bool Cancel, bool MainCertImport, int caC
       }
       else
       {
-        this->display_cert(this->buffer,false);
+        this->display_cert(QString::fromStdString(SCert),false);
         ui->radioButtonDisplayCertificate->setChecked(true);
         /** Get Key */
         if ((retcode= this->getCert()->get_key_PEM(&SKey)) != 0)
@@ -2061,7 +2062,8 @@ void SSLMainWindow::on_pushButtonSignCert_clicked()
     this->display_ssl_err(tr("Error signing cert"));
   }
   else {
-    if (newCert->get_cert_PEM(this->buffer,MAX_CERT_SIZE) != 0)
+    std::string certPEM;
+    if (newCert->get_cert_PEM(certPEM) != 0)
     {
       this->display_ssl_err("Error displaying certificate");
       this->deleteCert(&signCert);
@@ -2069,7 +2071,7 @@ void SSLMainWindow::on_pushButtonSignCert_clicked()
       this->deleteCert(&newCert);
       return;
     }
-    this->display_cert(this->buffer,false);
+    this->display_cert(QString::fromStdString(certPEM));
     this->ui->radioButtonDisplayCSR->setChecked(false);
     this->ui->radioButtonDisplayCertificate->setChecked(true);
   }

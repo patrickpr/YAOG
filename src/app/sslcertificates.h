@@ -61,7 +61,7 @@ public:
      * @param ec : name of eliptic curve (list is keyECList) or NULL
      * @return  0 on success, 1 on error
      */
-    int set_key_params(unsigned int keyparam, int keytype, char*ec = nullptr);
+    int set_key_params(unsigned int keyparam, int keytype, std::string ec = "");
     int create_key();
 
     /**
@@ -73,7 +73,7 @@ public:
     int get_key_PEM(std::string * Skey, std::string password="");
 
     int get_key_HUM(std::string * Skey);
-    int get_key_HUM(char* Skey,size_t maxlength);
+
     /**
      * @brief Reads key in PEM format and put it in EVP_PKEY structure
      * @param Skey : key in PEM format
@@ -122,13 +122,14 @@ public:
     int sign_cert(SSLCertificates* certToSign, SSLCertificates* signingCert, unsigned int serial);
     /**
      * @brief get_cert_PEM : put current cert as Pem in skey
-     * @param Skey
+     * @param Skey : string to put certificate in
      * @param maxlength : of skey
      * @param locX509 : optionnal X509* to get pem from
      * @return 0: sucess, 1 : error copying, 2: maxlength too small, 3: error getting cert (note return of get_pkcs12_certs_pem)
      * check ssl errors
      */
     int get_cert_PEM(char* Skey,size_t maxlength,X509* locX509=nullptr);
+    int get_cert_PEM(std::string &Skey, X509* locX509=nullptr);
     /**
      * @brief get_cert_HUM : put cert as text human readeable
      * @param Skey
@@ -287,7 +288,7 @@ public:
     int ciphersListNum=4;//!< number ciphers
     char keyTypeList[10][10] = { "rsa","dsa","ec"}; //!< list of key types
     int keyTypeListNum=3;//!< number of key types
-    char keyECList[20][50] = {
+    std::string keyECList[20] = {
         "prime239v3","prime256v1",
         "secp224r1","secp384r1","secp521r1",
         "sect409k1","sect409r1","sect571k1","sect571r1",
