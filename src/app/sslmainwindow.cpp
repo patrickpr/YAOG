@@ -378,6 +378,7 @@ int SSLMainWindow::read_cert_pem_to_openssl()
 void SSLMainWindow::DisplayCert()
 {
     int retcode=1;
+    std::string certDisplay;
     // Read cert from GUI to openssl structure
     switch (this->read_cert_pem_to_openssl())
     {
@@ -392,9 +393,9 @@ void SSLMainWindow::DisplayCert()
 
     // Read cert from openssl strcture to human readable format.
     if ( this->ui->radioButtonDisplayCertificate->isChecked() )
-        retcode=this->getCert()->get_cert_HUM(this->buffer,MAX_CERT_SIZE);
+        retcode=this->getCert()->get_cert_HUM(certDisplay);
     if (this->ui->radioButtonDisplayCSR->isChecked())
-        retcode=this->getCert()->get_csr_HUM(this->buffer,MAX_CERT_SIZE);
+        retcode=this->getCert()->get_csr_HUM(certDisplay);
     switch (retcode)
     {
     case 1:
@@ -409,7 +410,7 @@ void SSLMainWindow::DisplayCert()
     }
 
     // Show key (reuse error dialog...)
-    DialogSSLErrors * ErrDlg=new DialogSSLErrors (tr("Certificate Display"),this->buffer,this);
+    DialogSSLErrors * ErrDlg=new DialogSSLErrors (tr("Certificate Display"),QString::fromStdString(certDisplay),this);
     ErrDlg->setWindowTitle(tr("Display"));
     ErrDlg->setModal(true);
     ErrDlg->exec();
@@ -735,6 +736,7 @@ void SSLMainWindow::DlgGenerateCSRFinished()
 {
     int retcode;
     QString error;
+    std::string csrDisplay;
     this->flush_async_dialog();
 
     if ((this->getCert()->SSLError !=0)||(SSLCertificates::abortnow == 1)) // In case of generate error / cancel, just close
@@ -754,10 +756,10 @@ void SSLMainWindow::DlgGenerateCSRFinished()
     case 0: // no error
         this->display_cert(this->buffer,false);
         this->ui->radioButtonDisplayCSR->setChecked(true);
-        switch (this->getCert()->get_csr_HUM(this->buffer,MAX_CERT_SIZE))
+        switch (this->getCert()->get_csr_HUM(csrDisplay))
         {
         case 0: // no error
-            emit add_text_output(this->buffer);
+            emit add_text_output(QString::fromStdString(csrDisplay));
             break;
         case 1:
             emit add_text_output(tr("Copy error in SSL (csr)"));
@@ -792,7 +794,7 @@ void SSLMainWindow::DlgGenerateCertFinished()
     int retcode;
     QString error;
     this->flush_async_dialog();
-    std::string certPem;
+    std::string certPem,certPemH;
 
     if ((this->getCert()->SSLError ==1)||(SSLCertificates::abortnow == 1)) // In case of generate error / cancel, just close
     {
@@ -813,10 +815,10 @@ void SSLMainWindow::DlgGenerateCertFinished()
     case 0: // no error
         this->display_cert(QString::fromStdString(certPem),false);
         this->ui->radioButtonDisplayCertificate->setChecked(true);
-        switch (this->getCert()->get_cert_HUM(this->buffer,MAX_CERT_SIZE))
+        switch (this->getCert()->get_cert_HUM(certPemH))
         {
         case 0: // no error
-            emit add_text_output(this->buffer);
+            emit add_text_output(QString::fromStdString(certPemH));
             break;
         case 1:
             emit add_text_output(tr("Copy error in SSL (csr)"));
@@ -905,11 +907,11 @@ void SSLMainWindow::on_pushButtonAddExtension_clicked()
 
 void SSLMainWindow::delete_All_extensions()
 {
-  for (int i=0;i<this->extensionList.count();i++)
+  while(this->extensionList.count() > 0)
   {
-        extensionElmt *elmt=this->extensionList.at(i);
+        extensionElmt *elmt=this->extensionList.last();
         this->ui->TWExtensions->removeRow(elmt->row);
-        this->extensionList.removeAt(i);
+        this->extensionList.removeLast();
         delete elmt->critical;
         delete elmt->labelWidget;
         delete elmt->deleteBtn;
@@ -917,7 +919,6 @@ void SSLMainWindow::delete_All_extensions()
         delete elmt->criticallayout ;
         delete elmt->value;
         delete elmt;
-        break;
   }
 }
 
@@ -1679,6 +1680,10 @@ void SSLMainWindow::DlgPKCS12_Finished(bool Cancel, bool MainCertImport, int caC
       }
      }
   }
+  // Close cert selection in stack in case it was set
+  this->stackWindow->pkcs12Selection(false);
+
+  // Close PKCS12 dialog
   this->deleteCert();
   this->dlgP12->close();
   this->dlgP12->deleteLater();

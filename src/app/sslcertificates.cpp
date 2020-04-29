@@ -660,7 +660,7 @@ int SSLCertificates::get_csr_PEM(char *Skey, size_t maxlength) {
     return 0;
 }
 
-int SSLCertificates::get_csr_HUM(char* Skey,size_t maxlength) {
+int SSLCertificates::get_csr_HUM(std::string& csrHumanReadable) {
 
     BIO *mem = BIO_new(BIO_s_mem());
     BUF_MEM *bptr;
@@ -668,7 +668,7 @@ int SSLCertificates::get_csr_HUM(char* Skey,size_t maxlength) {
 
     if (X509_REQ_print(mem,this->csr)==0) {
         this->get_ssl_errors();
-        strncpy_s(Skey,maxlength,"Error printing certificate",maxlength);
+        csrHumanReadable = "Error printing certificate";
         return 3;
     }
 
@@ -677,11 +677,10 @@ int SSLCertificates::get_csr_HUM(char* Skey,size_t maxlength) {
     if (bptr->length == 0) {
         BIO_free(mem);return 1;
     }
-    if (bptr->length >= maxlength) {
-        BIO_free(mem);return 2;
-    }
-    strncpy_s(Skey,maxlength,bptr->data,bptr->length);
-    Skey[bptr->length+1]='\0';
+
+    csrHumanReadable.reserve(bptr->length+2);
+    csrHumanReadable.assign(bptr->data,bptr->length);
+    csrHumanReadable[bptr->length+1]='\0';
     BIO_free(mem);
     return 0;
 }
@@ -711,34 +710,6 @@ int SSLCertificates::set_csr_PEM(const char* Skey, char* password)
     return 0;
 }
 
-int SSLCertificates::get_cert_PEM(char *Skey, size_t maxlength, X509 *locX509) {
-
-    BIO *mem = BIO_new(BIO_s_mem());
-    BUF_MEM *bptr;
-    // take local if not specified
-    if (locX509==nullptr) locX509=this->x509;
-
-    if (!PEM_write_bio_X509(mem,locX509))
-    {
-        this->get_ssl_errors();
-        BIO_free(mem);
-        return 3;
-    }
-
-    BIO_get_mem_ptr(mem, &bptr);
-
-    if (bptr->length == 0) {
-        BIO_free(mem);return 1;
-    }
-    if (bptr->length >= maxlength) {
-        BIO_free(mem);return 2;
-    }
-    strncpy_s(Skey,maxlength,bptr->data,bptr->length);
-    Skey[bptr->length+1]='\0';
-    BIO_free(mem);
-    return 0;
-}
-
 int SSLCertificates::get_cert_PEM(std::string& Skey,X509* locX509)
 {
   BIO *mem = BIO_new(BIO_s_mem());
@@ -758,13 +729,14 @@ int SSLCertificates::get_cert_PEM(std::string& Skey,X509* locX509)
   if (bptr->length == 0) {
       BIO_free(mem);return 1;
   }
+  Skey.reserve(bptr->length+2);
   Skey.assign(bptr->data,bptr->length);
   Skey[bptr->length+1]='\0';
   BIO_free(mem);
   return 0;
 }
 
-int SSLCertificates::get_cert_HUM(char* Skey,size_t maxlength) {
+int SSLCertificates::get_cert_HUM(std::string& cert) {
 
     BIO *mem = BIO_new(BIO_s_mem());
     BUF_MEM *bptr;
@@ -772,7 +744,7 @@ int SSLCertificates::get_cert_HUM(char* Skey,size_t maxlength) {
 
     if (X509_print(mem,this->x509)==0) {
         this->get_ssl_errors();
-        strncpy_s(Skey,maxlength,"Error printing certificate",maxlength);
+        cert = "Error printing certificate";
         return 3;
     }
 
@@ -781,11 +753,9 @@ int SSLCertificates::get_cert_HUM(char* Skey,size_t maxlength) {
     if (bptr->length == 0) {
         BIO_free(mem);return 1;
     }
-    if (bptr->length >= maxlength) {
-        BIO_free(mem);return 2;
-    }
-    strncpy_s(Skey,maxlength,bptr->data,bptr->length);
-    Skey[bptr->length+1]='\0';
+    cert.reserve(bptr->length+2);
+    cert.assign(bptr->data,bptr->length);
+    cert[bptr->length+1]='\0';
     BIO_free(mem);
     return 0;
 }
@@ -1362,16 +1332,15 @@ int SSLCertificates::x509_extension_get(std::vector<SSLCertificates::x509Extensi
 {
   X509_EXTENSION * ext;
   int extNID;
-  ASN1_OCTET_STRING * extValue;
   int numExt=X509_get_ext_count(this->x509);
   for (int i=0;i<numExt;i++)
   {
-    x509Extension extVal;
+    x509Extension extVal = {"","",0,"",false};
     ext=X509_get_ext(this->x509,i);
     if (ext==nullptr) continue;
 
     extVal.critical = (X509_EXTENSION_get_critical(ext)==1) ? true : false;
-    extValue=X509_EXTENSION_get_data(ext);
+    //ASN1_OCTET_STRING * extValue=X509_EXTENSION_get_data(ext);
     extNID=OBJ_obj2nid(X509_EXTENSION_get_object(ext));
     extVal.NID=extNID;
     switch (extNID)
@@ -1399,7 +1368,7 @@ int SSLCertificates::x509_extension_get(std::vector<SSLCertificates::x509Extensi
              break;
            }
         }
-        extVal.name="subjectAltName";
+        extVal.name=SN_subject_alt_name;
         if ( ! extVal.values.empty() )
         {
           extensions->push_back(extVal);
@@ -1408,6 +1377,110 @@ int SSLCertificates::x509_extension_get(std::vector<SSLCertificates::x509Extensi
       }
       break;
       case NID_basic_constraints:
+      {
+          BASIC_CONSTRAINTS *bs = (BASIC_CONSTRAINTS *) X509V3_EXT_d2i(ext);
+          if (bs == nullptr) continue;
+          extVal.values = (bs->ca == 255) ? "CA:TRUE" : "CA:FALSE";
+          long pathlen = ASN1_INTEGER_get(bs->pathlen);
+          if (pathlen != 0)
+          {
+            extVal.values += ",pathlen:" + std::to_string(pathlen);
+          }
+          extVal.name=SN_basic_constraints;
+          extensions->push_back(extVal);
+
+          BASIC_CONSTRAINTS_free(bs);
+      }
+      break;
+      case NID_key_usage:
+      {
+          ASN1_BIT_STRING *usage = (ASN1_BIT_STRING *)X509V3_EXT_d2i(ext);
+          if (usage && (usage->length > 0))
+          {
+              int octet=0,bit=128;
+              for (int i=0;i<this->x509KeyUsageListNum;i++)
+              {
+                 if ((usage->data[octet] & bit) == bit)
+                 {
+                   extVal.values += (extVal.values.empty())?"":", ";
+                   extVal.values += this->x509KeyUsageList[i];
+                 }
+                 if (bit==1)
+                 {
+                   bit=128;
+                   octet++;
+                   if (usage->length <= octet) // if next bit is not used
+                     break;
+                 }
+                 else
+                   bit/=2;
+              }
+          }
+          //extVal.values += "/l="+std::to_string(usage->length)+ "/" + std::to_string(usage->data[0]) + "/" + std::to_string(usage->data[1]);
+          extVal.name=SN_key_usage;
+          if ( ! extVal.values.empty() )
+          {
+            extensions->push_back(extVal);
+          }
+      }
+      break;
+      case NID_crl_distribution_points:
+      {  // TODO : missing paramters "reasons". Only gets URI
+          CRL_DIST_POINTS * crlDistPoints = nullptr;
+          crlDistPoints = (CRL_DIST_POINTS *) X509V3_EXT_d2i(ext);
+          if (crlDistPoints == nullptr) continue;
+          int numCrlDistPoints=sk_DIST_POINT_num(crlDistPoints);
+          for (int i=0;i<numCrlDistPoints;i++) // Parse each distribution points
+          {
+             DIST_POINT *distPoint = sk_DIST_POINT_value(crlDistPoints, i);
+             const char* distPointName;
+             std::string comma=(extVal.values.empty())?"":", ";
+
+             if (distPoint->distpoint == nullptr || distPoint->distpoint->type != 0) continue;  // No distribution point or bad type
+
+             for (int j=0;j<sk_GENERAL_NAME_num(distPoint->distpoint->name.fullname);j++)
+             {
+                GENERAL_NAME *crlDpName =   sk_GENERAL_NAME_value(distPoint->distpoint->name.fullname,j);
+                if (crlDpName->type == GEN_URI)
+                {
+                  distPointName = (const char*) ASN1_STRING_get0_data(crlDpName->d.uniformResourceIdentifier);
+                  extVal.values += comma + std::string(distPointName);
+                  break;
+                }
+             }
+
+          }
+          extVal.name=SN_crl_distribution_points;
+          if ( ! extVal.values.empty() )
+          {
+            extensions->push_back(extVal);
+          }
+          sk_DIST_POINT_free(crlDistPoints); // Free stack
+      }
+      break;
+      case NID_ext_key_usage:
+      {
+          EXTENDED_KEY_USAGE * usage = (EXTENDED_KEY_USAGE *) X509V3_EXT_d2i(ext);
+          for (int i = 0; i < sk_ASN1_OBJECT_num(usage); i++)
+          {
+              int usageNID = OBJ_obj2nid(sk_ASN1_OBJECT_value(usage, i));
+              try
+              {
+                std::string comma=(extVal.values.empty())?"":", ";
+                extVal.values += comma + this->x509ExtKeyUsageList.at(usageNID);
+              }
+              catch (const std::out_of_range& oor)
+              { // Unknown NID
+                 // TODO : put a warning of some type
+              }
+          }
+          sk_ASN1_OBJECT_pop_free(usage, ASN1_OBJECT_free);
+          extVal.name = SN_ext_key_usage;
+          if ( ! extVal.values.empty() )
+          {
+            extensions->push_back(extVal);
+          }
+      }
       break;
       default:
       break;
