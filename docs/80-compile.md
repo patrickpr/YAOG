@@ -84,11 +84,13 @@ In `<YAOG-Bin>` directory in CLI, run :
 
 * Add mingw DLL
 
-From directory : `C:\Qt\Tools\mingw<version>_64\bin copy to <YAOG-Bin>` : 
-** libgcc_s_seh-1.dll
-** libstdc++-6.dll
-** libwinpthread-1.dll
-	
+From directory : `C:\Qt\Tools\mingw<version>_64\bin` copy the following files to `<YAOG-Bin>` : 
+```
+libgcc_s_seh-1.dll
+libstdc++-6.dll
+libwinpthread-1.dll
+```
+
 * Add compiled openssl DLL 
 
 Copy to `<YAOG-Bin>` 
