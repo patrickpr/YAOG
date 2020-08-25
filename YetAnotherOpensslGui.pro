@@ -1,15 +1,13 @@
 #-------------------------------------------------
 #   Project : Yet Another OpenSSL GUI
 #   Author : Patrick Proy
-#   Copyright (C) 2018-2019
+#   Copyright (C) 2018-2020
 #
 #   Licence : http://www.gnu.org/licenses/gpl.txt
 #
 #-------------------------------------------------
 
-QT       += core gui network
-
-greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
+QT       += core gui network widgets
 
 TARGET = YetAnotherOpensslGui
 TEMPLATE = app
@@ -21,7 +19,8 @@ SOURCES +=  src/app/main.cpp\
             src/app/dialogsslerrors.cpp \
             src/app/dialogcertdate.cpp \
             src/app/dialogx509v3extention.cpp \
-            src/app/cdialogpkcs12.cpp
+            src/app/cdialogpkcs12.cpp \
+            src/app/stackwindow.cpp
 
 HEADERS  += src/app/sslmainwindow.h \
             src/app/sslcertificates.h \
@@ -29,26 +28,21 @@ HEADERS  += src/app/sslmainwindow.h \
             src/app/dialogsslerrors.h \
             src/app/dialogcertdate.h \
             src/app/dialogx509v3extention.h \
-            src/app/cdialogpkcs12.h
+            src/app/cdialogpkcs12.h \
+            src/app/stackwindow.h
 
 FORMS    += src/app/sslmainwindow.ui \
             src/app/dialoggeneratekey.ui \
             src/app/dialogsslerrors.ui \
             src/app/dialogcertdate.ui \
             src/app/dialogx509v3extention.ui \
-            src/app/cdialogpkcs12.ui
+            src/app/cdialogpkcs12.ui \
+            src/app/stackwindow.ui
 
-#LIBS += -L"src/openssl/lib/MinGW"
-#LIBS += "src/openssl/lib/MinGW/libssl-1_1.a" "src/openssl/lib/MinGW/libcrypto-1_1.a"# -lssl -lcrypto"
-
-LIBS += -L"src/openssl/lib/VC"
-LIBS += $$PWD/src/openssl/lib/VC/libssl.lib  $$PWD/src/openssl/lib/VC/libcrypto.lib
-
-#LIBS += -L"D:\apps\Dev\OpenSSL-Win32_1.0.2\lib\MinGW" -leay32 -lssleay32
-#OPENSSL_LIBS=' -lssl -lcrypto'
+LIBS += -L"src/openssl/lib"
+LIBS += $$PWD/src/openssl/lib/libssl.lib  $$PWD/src/openssl/lib/libcrypto.lib
 
 INCLUDEPATH += "src/openssl/include"
-#INCLUDEPATH += "D:\apps\Dev\OpenSSL-Win32_1.0.2\include"
 
 RESOURCES += \
     src/app/ressources.qrc

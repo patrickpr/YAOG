@@ -120,7 +120,7 @@ SSLCertificates::~SSLCertificates()
 
 void SSLCertificates::print_ssl_errors(char* buffer,size_t size)
 {
-    char linebuf[200]="";
+    char linebuf[200]=""; // TODO : dynamic size with max size
     if (this->SSLErrorNum == -1)
     {
         strcpy_s(buffer,MAX_SSL_ERRORS_BUF_SIZE,"No current SSL errors ");
@@ -233,7 +233,7 @@ int SSLCertificates::set_object(const char* oCN, const char* oC, const char* oS,
     return 0;
 }
 
-int SSLCertificates::set_key_params(unsigned int keyparam, int keytype, char* ec )
+int SSLCertificates::set_key_params(unsigned int keyparam, int keytype, std::string ec)
 {
     int i;
     switch (keytype)
@@ -245,7 +245,8 @@ int SSLCertificates::set_key_params(unsigned int keyparam, int keytype, char* ec
     case KeyEC:
         for (i=0;i< keyECListNum; i++)
         {
-            if (!strcmp(ec,this->keyECList[i]))
+            //if (!strcmp(ec,this->keyECList[i]))
+            if (ec == this->keyECList[i])
             {
                 this->keyECType=this->keyECListNIDCode[i];
                 this->keyType=keytype;
@@ -659,7 +660,7 @@ int SSLCertificates::get_csr_PEM(char *Skey, size_t maxlength) {
     return 0;
 }
 
-int SSLCertificates::get_csr_HUM(char* Skey,size_t maxlength) {
+int SSLCertificates::get_csr_HUM(std::string& csrHumanReadable) {
 
     BIO *mem = BIO_new(BIO_s_mem());
     BUF_MEM *bptr;
@@ -667,7 +668,7 @@ int SSLCertificates::get_csr_HUM(char* Skey,size_t maxlength) {
 
     if (X509_REQ_print(mem,this->csr)==0) {
         this->get_ssl_errors();
-        strncpy_s(Skey,maxlength,"Error printing certificate",maxlength);
+        csrHumanReadable = "Error printing certificate";
         return 3;
     }
 
@@ -676,11 +677,10 @@ int SSLCertificates::get_csr_HUM(char* Skey,size_t maxlength) {
     if (bptr->length == 0) {
         BIO_free(mem);return 1;
     }
-    if (bptr->length >= maxlength) {
-        BIO_free(mem);return 2;
-    }
-    strncpy_s(Skey,maxlength,bptr->data,bptr->length);
-    Skey[bptr->length+1]='\0';
+
+    csrHumanReadable.reserve(bptr->length+2);
+    csrHumanReadable.assign(bptr->data,bptr->length);
+    csrHumanReadable[bptr->length+1]='\0';
     BIO_free(mem);
     return 0;
 }
@@ -710,35 +710,33 @@ int SSLCertificates::set_csr_PEM(const char* Skey, char* password)
     return 0;
 }
 
-int SSLCertificates::get_cert_PEM(char *Skey, size_t maxlength, X509 *locX509) {
+int SSLCertificates::get_cert_PEM(std::string& Skey,X509* locX509)
+{
+  BIO *mem = BIO_new(BIO_s_mem());
+  BUF_MEM *bptr;
+  // take local if not specified
+  if (locX509==nullptr) locX509=this->x509;
 
-    BIO *mem = BIO_new(BIO_s_mem());
-    BUF_MEM *bptr;
-    // take local if not specified
-    if (locX509==nullptr) locX509=this->x509;
+  if (!PEM_write_bio_X509(mem,locX509))
+  {
+      this->get_ssl_errors();
+      BIO_free(mem);
+      return 3;
+  }
 
-    if (!PEM_write_bio_X509(mem,locX509))
-    {
-        this->get_ssl_errors();
-        BIO_free(mem);
-        return 3;
-    }
+  BIO_get_mem_ptr(mem, &bptr);
 
-    BIO_get_mem_ptr(mem, &bptr);
-
-    if (bptr->length == 0) {
-        BIO_free(mem);return 1;
-    }
-    if (bptr->length >= maxlength) {
-        BIO_free(mem);return 2;
-    }
-    strncpy_s(Skey,maxlength,bptr->data,bptr->length);
-    Skey[bptr->length+1]='\0';
-    BIO_free(mem);
-    return 0;
+  if (bptr->length == 0) {
+      BIO_free(mem);return 1;
+  }
+  Skey.reserve(bptr->length+2);
+  Skey.assign(bptr->data,bptr->length);
+  Skey[bptr->length+1]='\0';
+  BIO_free(mem);
+  return 0;
 }
 
-int SSLCertificates::get_cert_HUM(char* Skey,size_t maxlength) {
+int SSLCertificates::get_cert_HUM(std::string& cert) {
 
     BIO *mem = BIO_new(BIO_s_mem());
     BUF_MEM *bptr;
@@ -746,7 +744,7 @@ int SSLCertificates::get_cert_HUM(char* Skey,size_t maxlength) {
 
     if (X509_print(mem,this->x509)==0) {
         this->get_ssl_errors();
-        strncpy_s(Skey,maxlength,"Error printing certificate",maxlength);
+        cert = "Error printing certificate";
         return 3;
     }
 
@@ -755,11 +753,9 @@ int SSLCertificates::get_cert_HUM(char* Skey,size_t maxlength) {
     if (bptr->length == 0) {
         BIO_free(mem);return 1;
     }
-    if (bptr->length >= maxlength) {
-        BIO_free(mem);return 2;
-    }
-    strncpy_s(Skey,maxlength,bptr->data,bptr->length);
-    Skey[bptr->length+1]='\0';
+    cert.reserve(bptr->length+2);
+    cert.assign(bptr->data,bptr->length);
+    cert[bptr->length+1]='\0';
     BIO_free(mem);
     return 0;
 }
@@ -901,20 +897,35 @@ int SSLCertificates::set_cert_PEM(const char* Skey, const char* password)
     return 0;
 }
 
-int SSLCertificates::get_key_PEM(char *Skey, size_t maxlength) {
-
+int SSLCertificates::get_key_PEM(std::string * Skey, std::string password)
+{
     BIO *mem = BIO_new(BIO_s_mem());
     BUF_MEM *bptr;
+
     switch (this->keyType)
     {
-    case KeyDSA:   // PEM_write_bio_DSAPrivateKey
+    case KeyDSA: // PEM_write_bio_DSAPrivateKey
     case KeyRSA:
     case KeyEC:
-        if (!PEM_write_bio_PrivateKey(mem,this->pkey,nullptr,nullptr,0,nullptr, nullptr))
+        if (password=="")
         {
-            this->get_ssl_errors();
-            BIO_free(mem);
-            return 3;
+          if (!PEM_write_bio_PrivateKey(mem,this->pkey,nullptr,nullptr,0,nullptr, nullptr))
+          {
+              this->get_ssl_errors();
+              BIO_free(mem);
+              return 3;
+          }
+        }
+        else
+        {
+          if (PEM_write_bio_PKCS8PrivateKey(mem,this->pkey,this->useCipher,
+                                            const_cast<char* >(password.c_str()),
+                                            static_cast<int>(password.size()),nullptr, nullptr) == 0)
+          {
+              this->get_ssl_errors();
+              BIO_free(mem);
+              return 3;
+          }
         }
         break;
     default:
@@ -926,18 +937,17 @@ int SSLCertificates::get_key_PEM(char *Skey, size_t maxlength) {
     BIO_get_mem_ptr(mem, &bptr);
 
     if (bptr->length == 0) {
-        BIO_free(mem);return 1;
+        this->get_ssl_errors();BIO_free(mem);return 1;
     }
-    if (bptr->length >= maxlength) {
+    if (bptr->length >= MAX_IO_BUFFER_SIZE) {
         BIO_free(mem);return 2;
     }
-    strncpy_s(Skey,maxlength,bptr->data,bptr->length);
-    Skey[bptr->length+1]='\0';
+    Skey->assign(bptr->data,bptr->length);
     BIO_free(mem);
     return 0;
 }
 
-int SSLCertificates::get_key_HUM(char* Skey,size_t maxlength) {
+int SSLCertificates::get_key_HUM(std::string * Skey) {
 
     BIO *mem = BIO_new(BIO_s_mem());
     BUF_MEM *bptr;
@@ -950,7 +960,7 @@ int SSLCertificates::get_key_HUM(char* Skey,size_t maxlength) {
         if (RSA_print(mem,pkey->pkey.rsa,0)==0) {
 #endif
           this->get_ssl_errors();
-            strncpy_s(Skey,maxlength,"Error printing RSA key",maxlength);
+            *Skey="Error printing RSA key";
             return 3;
         }
         break;
@@ -962,7 +972,7 @@ int SSLCertificates::get_key_HUM(char* Skey,size_t maxlength) {
 #endif
         {
             this->get_ssl_errors();
-            strncpy_s(Skey,maxlength,"Error printing EC key",maxlength);
+            *Skey="Error printing EC key";
             return 3;
         }
         break;
@@ -974,13 +984,13 @@ int SSLCertificates::get_key_HUM(char* Skey,size_t maxlength) {
 #endif
         {
             this->get_ssl_errors();
-            strncpy_s(Skey,maxlength,"Error printing DSA key",maxlength);
+            *Skey="Error printing DSA key";
             return 3;
         }
         break;
     default:
         this->get_ssl_errors();
-        strncpy_s(Skey,maxlength,"Unknown key",maxlength);
+        *Skey="Unknown key";
         return 3;
     }
 
@@ -990,16 +1000,14 @@ int SSLCertificates::get_key_HUM(char* Skey,size_t maxlength) {
         this->get_ssl_errors();
         BIO_free(mem);return 1;
     }
-    if (bptr->length >= maxlength) {
+    if (bptr->length >= MAX_IO_BUFFER_SIZE) {
         this->get_ssl_errors();
         BIO_free(mem);return 2;
     }
-    strncpy_s(Skey,maxlength,bptr->data,bptr->length);
-    Skey[bptr->length]='\0';
+    Skey->assign(bptr->data,bptr->length);
     BIO_free(mem);
     return 0;
 }
-
 
 int SSLCertificates::set_key_PEM(const char* Skey, char* password=nullptr)
 {
@@ -1097,7 +1105,7 @@ int SSLCertificates::get_key_params(keyTypes* keytype,std::string &keyTypeString
           {
              if (ec_nid==this->keyECListNIDCode[i])
              {
-               ectype.assign(this->keyECList[i]);
+               ectype = this->keyECList[i];
              }
           }
       }
@@ -1106,44 +1114,6 @@ int SSLCertificates::get_key_params(keyTypes* keytype,std::string &keyTypeString
     }
     keyTypeString = "Unkown";
     return 1;
-}
-
-int SSLCertificates::get_key_PEM_enc(char *Skey, size_t maxlength, char* password)
-{
-    BIO *mem = BIO_new(BIO_s_mem());
-    BUF_MEM *bptr;
-
-    switch (this->keyType)
-    {
-    case KeyDSA: // PEM_write_bio_DSAPrivateKey
-    case KeyRSA:
-    case KeyEC:
-        if (PEM_write_bio_PKCS8PrivateKey(mem,this->pkey,this->useCipher,
-                                          password,static_cast<int>(strlen(password)),nullptr, nullptr) == 0)
-        {
-            this->get_ssl_errors();
-            BIO_free(mem);
-            return 3;
-        }
-        break;
-    default:
-        BIO_free(mem);
-        return 3;
-    }
-
-
-    BIO_get_mem_ptr(mem, &bptr);
-
-    if (bptr->length == 0) {
-        this->get_ssl_errors();BIO_free(mem);return 1;
-    }
-    if (bptr->length >= maxlength) {
-        BIO_free(mem);return 2;
-    }
-    strncpy_s(Skey,maxlength,bptr->data,bptr->length+1);
-    Skey[bptr->length+1]='\0';
-    BIO_free(mem);
-    return 0;
 }
 
 int SSLCertificates::save_to_pkcs12(FILE *file, char* name,char* pass)
@@ -1247,7 +1217,10 @@ std::string SSLCertificates::get_pkcs12_certs_CN(unsigned int n)
 int SSLCertificates::get_pkcs12_certs_pem(unsigned int n,char *Skey, size_t maxlength)
 {
   if (n>=this->caListCerts.size()) return 10;
-  return get_cert_PEM(Skey,maxlength,this->caListCerts.at(n));
+  std::string certPEM;
+  int retcode = get_cert_PEM(certPEM,this->caListCerts.at(n));
+  strcpy_s(Skey,maxlength,certPEM.c_str());
+  return retcode;
 }
 
 int SSLCertificates::load_pkcs12(FILE *file, const char* password)
@@ -1359,24 +1332,164 @@ int SSLCertificates::x509_extension_get(std::vector<SSLCertificates::x509Extensi
 {
   X509_EXTENSION * ext;
   int extNID;
-  ASN1_OCTET_STRING * extValue;
   int numExt=X509_get_ext_count(this->x509);
   for (int i=0;i<numExt;i++)
   {
-    x509Extension extVal;
+    x509Extension extVal = {"","",0,"",false};
     ext=X509_get_ext(this->x509,i);
+
     if (ext==nullptr) continue;
 
-    if (X509_EXTENSION_get_critical(ext)==1) extVal.critical=true;
-    else extVal.critical=false;
-    extValue=X509_EXTENSION_get_data(ext);
+    extVal.critical = (X509_EXTENSION_get_critical(ext)==1) ? true : false;
+    //ASN1_OCTET_STRING * extValue=X509_EXTENSION_get_data(ext);
     extNID=OBJ_obj2nid(X509_EXTENSION_get_object(ext));
-    BASIC_CONSTRAINTS* test;
-    AUTHORITY_KEYID *test2;
+    extVal.NID=extNID;
+    switch (extNID)
+    {
+      case NID_subject_alt_name:
+      {
+        GENERAL_NAMES *names = nullptr;
+        names = (GENERAL_NAMES *) X509V3_EXT_d2i(ext);
+        if (names == nullptr) continue;
+        int numAltNames=sk_GENERAL_NAME_num(names);
+        for (int i=0;i<numAltNames;i++)
+        {
+           GENERAL_NAME *currentName = sk_GENERAL_NAME_value(names, i);
+           const char *AltName;
+           std::string comma=(extVal.values.empty())?"":", ";
+           switch (currentName->type)
+           {
+             case GEN_DNS:
+               AltName = (const char *) ASN1_STRING_get0_data(currentName->d.dNSName);
+               extVal.values += comma + "DNS:" + std::string(AltName);
+             break;
+             case GEN_URI:
+               AltName = (const char *) ASN1_STRING_get0_data(currentName->d.uniformResourceIdentifier);
+               extVal.values += comma + "URI:" + std::string(AltName);
+             break;
+           }
+        }
+        extVal.name=SN_subject_alt_name;
+        if ( ! extVal.values.empty() )
+        {
+          extensions->push_back(extVal);
+        }
+        sk_GENERAL_NAME_pop_free(names, GENERAL_NAME_free); // Free stack
+      }
+      break;
+      case NID_basic_constraints:
+      {
+          BASIC_CONSTRAINTS *bs = (BASIC_CONSTRAINTS *) X509V3_EXT_d2i(ext);
+          if (bs == nullptr) continue;
+          extVal.values = (bs->ca == 255) ? "CA:TRUE" : "CA:FALSE";
+          long pathlen = ASN1_INTEGER_get(bs->pathlen);
+          if (pathlen != 0)
+          {
+            extVal.values += ",pathlen:" + std::to_string(pathlen);
+          }
+          extVal.name=SN_basic_constraints;
+          extensions->push_back(extVal);
+
+          BASIC_CONSTRAINTS_free(bs);
+      }
+      break;
+      case NID_key_usage:
+      {
+          ASN1_BIT_STRING *usage = (ASN1_BIT_STRING *)X509V3_EXT_d2i(ext);
+          if (usage && (usage->length > 0))
+          {
+              int octet=0,bit=128;
+              for (int i=0;i<this->x509KeyUsageListNum;i++)
+              {
+                 if ((usage->data[octet] & bit) == bit)
+                 {
+                   extVal.values += (extVal.values.empty())?"":", ";
+                   extVal.values += this->x509KeyUsageList[i];
+                 }
+                 if (bit==1)
+                 {
+                   bit=128;
+                   octet++;
+                   if (usage->length <= octet) // if next bit is not used
+                     break;
+                 }
+                 else
+                   bit/=2;
+              }
+          }
+          //extVal.values += "/l="+std::to_string(usage->length)+ "/" + std::to_string(usage->data[0]) + "/" + std::to_string(usage->data[1]);
+          extVal.name=SN_key_usage;
+          if ( ! extVal.values.empty() )
+          {
+            extensions->push_back(extVal);
+          }
+      }
+      break;
+      case NID_crl_distribution_points:
+      {  // TODO : missing paramters "reasons". Only gets URI
+          CRL_DIST_POINTS * crlDistPoints = nullptr;
+          crlDistPoints = (CRL_DIST_POINTS *) X509V3_EXT_d2i(ext);
+          if (crlDistPoints == nullptr) continue;
+          int numCrlDistPoints=sk_DIST_POINT_num(crlDistPoints);
+          for (int i=0;i<numCrlDistPoints;i++) // Parse each distribution points
+          {
+             DIST_POINT *distPoint = sk_DIST_POINT_value(crlDistPoints, i);
+             const char* distPointName;
+             std::string comma=(extVal.values.empty())?"":", ";
+
+             if (distPoint->distpoint == nullptr || distPoint->distpoint->type != 0) continue;  // No distribution point or bad type
+
+             for (int j=0;j<sk_GENERAL_NAME_num(distPoint->distpoint->name.fullname);j++)
+             {
+                GENERAL_NAME *crlDpName =   sk_GENERAL_NAME_value(distPoint->distpoint->name.fullname,j);
+                if (crlDpName->type == GEN_URI)
+                {
+                  distPointName = (const char*) ASN1_STRING_get0_data(crlDpName->d.uniformResourceIdentifier);
+                  extVal.values += comma + std::string(distPointName);
+                  break;
+                }
+             }
+
+          }
+          extVal.name=SN_crl_distribution_points;
+          if ( ! extVal.values.empty() )
+          {
+            extensions->push_back(extVal);
+          }
+          sk_DIST_POINT_free(crlDistPoints); // Free stack
+      }
+      break;
+      case NID_ext_key_usage:
+      {
+          EXTENDED_KEY_USAGE * usage = (EXTENDED_KEY_USAGE *) X509V3_EXT_d2i(ext);
+          for (int i = 0; i < sk_ASN1_OBJECT_num(usage); i++)
+          {
+              int usageNID = OBJ_obj2nid(sk_ASN1_OBJECT_value(usage, i));
+              try
+              {
+                std::string comma=(extVal.values.empty())?"":", ";
+                extVal.values += comma + this->x509ExtKeyUsageList.at(usageNID);
+              }
+              catch (const std::out_of_range& oor)
+              { // Unknown NID
+                 // TODO : put a warning of some type
+              }
+          }
+          sk_ASN1_OBJECT_pop_free(usage, ASN1_OBJECT_free);
+          extVal.name = SN_ext_key_usage;
+          if ( ! extVal.values.empty() )
+          {
+            extensions->push_back(extVal);
+          }
+      }
+      break;
+      default:
+      break;
+    }
+
+    //BASIC_CONSTRAINTS* test;
+    //AUTHORITY_KEYID *test2;
     // TODO : get extensions and put it in the GUI. Seems every extension type has to be get by specific methods....
-    test=nullptr;
-    test2=nullptr;
-    extensions=nullptr;
     // END TODO
   }
   return 0;
@@ -1420,96 +1533,6 @@ int SSLCertificates::add_ext_bytxt(X509 *cert, const char* nid, const char *valu
     X509_add_ext(cert,ex,-1);
     X509_EXTENSION_free(ex);
     return 1;
-}
-
-int SSLCertificates::mkcert(X509 **x509p, EVP_PKEY **pkeyp, int bits, int serial, int days)
-{
-    X509 *x;
-    EVP_PKEY *pk;
-    RSA *rsa;
-    X509_NAME2 *x509Name;
-
-    if ((pkeyp == nullptr) || (*pkeyp == nullptr))
-        {
-        if ((pk=EVP_PKEY_new()) == nullptr)
-            {
-            //abort();
-            return(0);
-            }
-        }
-    else
-        pk= *pkeyp;
-
-    if ((x509p == nullptr) || (*x509p == nullptr))
-        {
-        if ((x=X509_new()) == nullptr)
-            goto err;
-        }
-    else
-        x= *x509p;
-
-    rsa=RSA_generate_key(bits,RSA_F4,nullptr,nullptr);
-
-    if (!EVP_PKEY_assign_RSA(pk,rsa))
-
-    {
-        //abort();
-        goto err;
-        }
-    rsa=nullptr;
-
-    X509_set_version(x,2);
-    ASN1_INTEGER_set(X509_get_serialNumber(x),serial);
-    X509_gmtime_adj(X509_get_notBefore(x),0);
-    X509_gmtime_adj(X509_get_notAfter(x),static_cast<long>(60*60*24*days));
-    X509_set_pubkey(x,pk);
-
-    x509Name=X509_get_subject_name(x);
-
-    /* This function creates and adds the entry, working out the
-     * correct string type and performing checks on its length.
-     * Normally we'd check the return value for errors...
-     */
-    X509_NAME_add_entry_by_txt(x509Name,"C",
-                MBSTRING_ASC, reinterpret_cast<const unsigned char *>("UK"), -1, -1, 0);
-    X509_NAME_add_entry_by_txt(x509Name,"CN",
-                MBSTRING_ASC, reinterpret_cast<const unsigned char *>("OpenSSL Group"), -1, -1, 0);
-
-    /* Its self signed so set the issuer name to be the same as the
-     * subject.
-     */
-    X509_set_issuer_name(x,x509Name);
-
-    /* Add various extensions: standard extensions */
-    this->add_ext(x, NID_basic_constraints, "critical,CA:TRUE");
-    this->add_ext(x, NID_key_usage, "critical,keyCertSign,cRLSign");
-
-    this->add_ext(x, NID_subject_key_identifier, "hash");
-
-    /* Some Netscape specific extensions */
-    this->add_ext(x, NID_netscape_cert_type, "sslCA");
-
-    this->add_ext(x, NID_netscape_comment, "example comment extension");
-
-
-#ifdef CUSTOM_EXT
-    /* to add extension based on existing */
-    {
-        int nid;
-        nid = OBJ_create("1.2.3.4", "MyAlias", "My Test Alias Extension");
-        X509V3_EXT_add_alias(nid, NID_netscape_comment);
-        add_ext(x, nid, "example comment alias");
-    }
-#endif
-
-    if (!X509_sign(x,pk,EVP_md5()))
-        goto err;
-
-    *x509p=x;
-    *pkeyp=pk;
-    return(1);
-err:
-    return(0);
 }
 
 int SSLCertificates::get_key_type()
@@ -1593,7 +1616,8 @@ int SSLCertificates::check_key_cert_match()
     if (this->check_key() != 0)
         return 2;
     // init context
-    SSL_CTX* ctx = SSL_CTX_new( TLSv1_2_client_method()); //  TLSv1_client_method());
+    //SSL_CTX* ctx = SSL_CTX_new( TLSv1_2_client_method()); //  TLSv1_client_method());
+    SSL_CTX* ctx = SSL_CTX_new( TLS_client_method()); //  TLSv1_client_method());
     if (ctx==nullptr)
       {
         this->get_ssl_errors();

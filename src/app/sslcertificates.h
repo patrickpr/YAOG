@@ -17,6 +17,8 @@
 #include <openssl/engine.h>
 #endif
 
+#include "cx509extensions.h"
+
 #include <string>
 #include <stdio.h>
 #include <stdlib.h>
@@ -26,6 +28,7 @@
 #define OPENSSL_BAD_DECRYPT_ERR 100
 #define MAX_SSL_ERRORS 100  // max number of ssl errors to store
 #define MAX_SSL_ERRORS_BUF_SIZE 2000
+#define MAX_IO_BUFFER_SIZE 30000
 
 typedef struct X509_name_st X509_NAME2; // To bypass wincrypt definition.
 
@@ -60,10 +63,19 @@ public:
      * @param ec : name of eliptic curve (list is keyECList) or NULL
      * @return  0 on success, 1 on error
      */
-    int set_key_params(unsigned int keyparam, int keytype, char*ec = nullptr);
+    int set_key_params(unsigned int keyparam, int keytype, std::string ec = "");
     int create_key();
-    int get_key_PEM(char* Skey,size_t maxlength);
-    int get_key_HUM(char* Skey,size_t maxlength);
+
+    /**
+     * @brief get_key_PEM : get key in PEM format
+     * @param Skey string key in PEM format
+     * @param password string optionnal : password to encrypt key (must set cipher first)
+     * @return 0 : OK, 1 : error (saved in SSL error), 3 : too big
+     */
+    int get_key_PEM(std::string * Skey, std::string password="");
+
+    int get_key_HUM(std::string * Skey);
+
     /**
      * @brief Reads key in PEM format and put it in EVP_PKEY structure
      * @param Skey : key in PEM format
@@ -71,7 +83,7 @@ public:
      * @return 0 on success, 1:Error reading key (error codes set), 2: invalid /missing password 3: unknown key type
      */
     int set_key_PEM(const char* Skey, char *password);
-    int get_key_PEM_enc(char *Skey, size_t maxlength, char* password);
+
     /**
      * @brief get_key_type (key must be loaded)
      * @return key type KeyRSA/DSA/EC or 0 on error
@@ -112,21 +124,19 @@ public:
     int sign_cert(SSLCertificates* certToSign, SSLCertificates* signingCert, unsigned int serial);
     /**
      * @brief get_cert_PEM : put current cert as Pem in skey
-     * @param Skey
-     * @param maxlength : of skey
+     * @param Skey : string to put certificate in
      * @param locX509 : optionnal X509* to get pem from
      * @return 0: sucess, 1 : error copying, 2: maxlength too small, 3: error getting cert (note return of get_pkcs12_certs_pem)
      * check ssl errors
      */
-    int get_cert_PEM(char* Skey,size_t maxlength,X509* locX509=nullptr);
+    int get_cert_PEM(std::string &Skey, X509* locX509=nullptr);
     /**
      * @brief get_cert_HUM : put cert as text human readeable
-     * @param Skey
-     * @param maxlength: of skey
+     * @param cert : text output
      * @return 0: sucess, 1 : error copying, 2: maxlength too small, 3: error getting cert
      * check ssl errors
      */
-    int get_cert_HUM(char* Skey,size_t maxlength);
+    int get_cert_HUM(std::string& cert);
     /**
      * @brief get_DN_Elmt_from_name
      * @param char * CN : returned element name
@@ -243,11 +253,11 @@ public:
     int get_csr_PEM(char* Skey,size_t maxlength);
     /**
      * @brief get_csr_PEM : put CSR in human readable format to a string
-     * @param Skey : string to receive CSR
+     * @param csrHumanReadable : string to receive CSR
      * @param maxlength : max size to put in Skey
      * @return  0: sucess, 1 : error copying, 2: maxlength too small, 3: error getting cert, check ssl errors
      */
-    int get_csr_HUM(char* Skey,size_t maxlength);
+    int get_csr_HUM(std::string& csrHumanReadable);
     /**
      * @brief set_csr_PEM : load csr in Skey in openssl structure
      * @param Skey : string containing CSR in PEM format
@@ -277,7 +287,7 @@ public:
     int ciphersListNum=4;//!< number ciphers
     char keyTypeList[10][10] = { "rsa","dsa","ec"}; //!< list of key types
     int keyTypeListNum=3;//!< number of key types
-    char keyECList[20][50] = {
+    std::string keyECList[20] = {
         "prime239v3","prime256v1",
         "secp224r1","secp384r1","secp521r1",
         "sect409k1","sect409r1","sect571k1","sect571r1",
@@ -338,73 +348,55 @@ public:
 
     /* X509 v3 extentions helper */
     typedef struct x509Extension {
-        char name[50]; //!< Name of extension
+        std::string name; //!< Name of extension
+        std::string longName; //!< Long name of extension
         int NID; //!< NID of extension
-        char values[500]; //!< possible values, comma separated
-        bool critical; //!< used to get extensions
+        std::string values; //!< possible values comma separated or values is read from cert
+        bool critical; //!< Set if extension is critical
     } x509Extension; //!< Structure for x509 extension array
-    /* not declared as static if it can be read from openssl in future release */
+    /* list of common X509v3 extensions , not declared as static if it can be read from openssl in future release */
     x509Extension X509ExtensionHelp[9] = {
-        {"basicConstraints",NID_basic_constraints,"CA:TRUE,CA:FALSE,pathlen:<num>",false},
-        {"keyUsage",NID_key_usage,"digitalSignature,nonRepudiation,keyEncipherment,dataEncipherment,keyAgreement,keyCertSign,cRLSign,encipherOnly,decipherOnly",false},
-        {"subjectAltName",NID_subject_alt_name,"URI:http://<site>,email:<mail>,IP:<IP4/6>",false},
-        {"crlDistributionPoints",NID_crl_distribution_points,"URI:http://<site>",false},
-        {"extendedKeyUsage",NID_ext_key_usage,"serverAuth,clientAuth,codeSigning,emailProtection,timeStamping,OCSPSigning,ipsecIKE,msCodeInd,msCodeCom,msCTLSign,msEFS",false},
-        {"subjectKeyIdentifier",NID_subject_key_identifier,"<key>",false},
-        {SN_authority_key_identifier,NID_authority_key_identifier,"keyid:<key>",false},
-        {"certificatePolicies",NID_certificate_policies,"1.2.4.5",false},
-        {"policyConstraints",NID_policy_constraints,"requireExplicitPolicy:<num>,inhibitPolicyMapping:<num>",false} //!<list of common X509v3 extensions
+        {SN_basic_constraints,LN_basic_constraints,NID_basic_constraints,"CA:TRUE,CA:FALSE,pathlen:<num>",false},
+        {SN_key_usage,LN_key_usage,NID_key_usage,"digitalSignature,nonRepudiation,keyEncipherment,dataEncipherment,keyAgreement,keyCertSign,cRLSign,encipherOnly,decipherOnly",false},
+        {SN_subject_alt_name,LN_subject_alt_name,NID_subject_alt_name,"DNS:<site>,URI:https://<site>,email:<mail>,IP:<IP4/6>",false},
+        {SN_crl_distribution_points,LN_crl_distribution_points,NID_crl_distribution_points,"URI:https://<site>",false},
+        {SN_ext_key_usage,LN_ext_key_usage,NID_ext_key_usage,"serverAuth,clientAuth,codeSigning,emailProtection,timeStamping,OCSPSigning,ipsecIKE,msCodeInd,msCodeCom,msCTLSign,msEFS",false},
+        {"subjectKeyIdentifier",LN_subject_key_identifier,NID_subject_key_identifier,"<key>",false},
+        {SN_authority_key_identifier,LN_authority_key_identifier,NID_authority_key_identifier,"keyid:<key>",false},
+        {"certificatePolicies",LN_certificate_policies,NID_certificate_policies,"1.2.4.5",false},
+        {"policyConstraints",LN_policy_constraints,NID_policy_constraints,"requireExplicitPolicy:<num>,inhibitPolicyMapping:<num>",false}
     };
-/* From : https://www.openssl.org/docs/man1.1.0/man3/X509V3_EXT_d2i.html
-
- RFC5280
- Basic Constraints                  NID_basic_constraints
- Key Usage                          NID_key_usage
- Extended Key Usage                 NID_ext_key_usage
-
- Subject Key Identifier             NID_subject_key_identifier
- Authority Key Identifier           NID_authority_key_identifier
-
- Private Key Usage Period           NID_private_key_usage_period
-
- Subject Alternative Name           NID_subject_alt_name
- Issuer Alternative Name            NID_issuer_alt_name
-
- Authority Information Access       NID_info_access
- Subject Information Access         NID_sinfo_access
-
- Name Constraints                   NID_name_constraints
-
- Certificate Policies               NID_certificate_policies
- Policy Mappings                    NID_policy_mappings
- Policy Constraints                 NID_policy_constraints
- Inhibit Any Policy                 NID_inhibit_any_policy
-
- TLS Feature                        NID_tlsfeature
-
- RFC5280
- CRL Number                         NID_crl_number
- CRL Distribution Points            NID_crl_distribution_points
- Delta CRL Indicator                NID_delta_crl
- Freshest CRL                       NID_freshest_crl
- Invalidity Date                    NID_invalidity_date
- Issuing Distribution Point         NID_issuing_distribution_point
-
- OSCP
- OCSP Nonce                         NID_id_pkix_OCSP_Nonce
- OCSP CRL ID                        NID_id_pkix_OCSP_CrlID
- Acceptable OCSP Responses          NID_id_pkix_OCSP_acceptableResponses
- OCSP No Check                      NID_id_pkix_OCSP_noCheck
- OCSP Archive Cutoff                NID_id_pkix_OCSP_archiveCutoff
- OCSP Service Locator               NID_id_pkix_OCSP_serviceLocator
- Hold Instruction Code              NID_hold_instruction_code
-
-RFC6962
- CT Precertificate SCTs             NID_ct_precert_scts
- CT Certificate SCTs                NID_ct_cert_scts
-*/
-
     int X509ExtensionHelpNum=8; //!< Number of X509ExtensionHelp
+
+    /* Key usage list from rfc5280 */
+    const int x509KeyUsageListNum=9;
+    const std::string x509KeyUsageList[9]= { "digitalSignature","nonRepudiation","keyEncipherment","dataEncipherment","keyAgreement","keyCertSign","cRLSign","encipherOnly","decipherOnly"};
+
+    const int x509ExtKeyUsageListNum=9;
+    std::map<int,std::string> x509ExtKeyUsageList = {
+      {NID_server_auth,"serverAuth"},
+      {NID_client_auth,"clientAuth"},
+      {NID_email_protect,"emailProtection"},
+      {NID_code_sign,"codeSigning"},
+      {NID_ms_sgc,"msSGC"},
+      {NID_ns_sgc,"nsSGC"},
+      {NID_OCSP_sign,"OCSPSigning"},
+      {NID_time_stamp,"timeStamping"},
+      {NID_dvcs,"DVCS"},
+      {NID_anyExtendedKeyUsage,"anyExtendedKeyUsage"}
+    };
+    std::map<int,std::string> x509ExtKeyUsageListLN = {
+      {NID_server_auth,"TLS Web Server Authentication"},
+      {NID_client_auth,"TLS Web Client Authentication"},
+      {NID_email_protect,"E-mail Protection"},
+      {NID_code_sign,"Code Signing"},
+      {NID_ms_sgc,"Microsoft Server Gated Crypto"},
+      {NID_ns_sgc,"Netscape Server Gated Crypto"},
+      {NID_OCSP_sign,"OCSP Signing"},
+      {NID_time_stamp,"Time Stamping"},
+      {NID_dvcs,"dvcs"},
+      {NID_anyExtendedKeyUsage,"Any Extended Key Usage"}
+    };
 
     /**
      * @brief x509_extension_add  : add X509 extension
@@ -479,7 +471,6 @@ private:
     BIO *bio_err; // TODO SEE if needed as declared in every functions
     char* bio_buf_error; // TODO SEE if needed (see above)
 
-    int mkcert(X509 **x509p, EVP_PKEY **pkeyp, int bits, int serial, int days);
     int add_ext(X509 *cert, int nid, const char *value);
     int add_ext_bytxt(X509 *cert, const char *nid, const char *value);
 

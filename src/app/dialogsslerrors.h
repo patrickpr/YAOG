@@ -12,7 +12,7 @@ class DialogSSLErrors : public QDialog
     Q_OBJECT
 
 public:
-    explicit DialogSSLErrors(QString label, QString errors, QWidget *parent = 0);
+    explicit DialogSSLErrors(QString label, QString errors, QWidget *parent = nullptr);
     ~DialogSSLErrors();
 
 private:
