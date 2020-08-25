@@ -25,9 +25,9 @@
 #include "cdialogpkcs12.h"
 #include "stackwindow.h"
 
-#define YAOGVERSION "1.1.0"
-#define YAOGVERSIONF "01010000"
-#define YAOGPLATFORM "W32"
+#define YAOGVERSION "1.1.1"
+#define YAOGVERSIONF "01010100"
+#define YAOGPLATFORM "W64"
 #define UPDATESRC "https://www.proy.org/yaog/update.php"
 
 #define PASSWORD_MAX_LENGTH 100

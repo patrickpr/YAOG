@@ -1337,6 +1337,7 @@ int SSLCertificates::x509_extension_get(std::vector<SSLCertificates::x509Extensi
   {
     x509Extension extVal = {"","",0,"",false};
     ext=X509_get_ext(this->x509,i);
+
     if (ext==nullptr) continue;
 
     extVal.critical = (X509_EXTENSION_get_critical(ext)==1) ? true : false;

@@ -17,6 +17,8 @@
 #include <openssl/engine.h>
 #endif
 
+#include "cx509extensions.h"
+
 #include <string>
 #include <stdio.h>
 #include <stdlib.h>
