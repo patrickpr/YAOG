@@ -38,9 +38,25 @@ CDialogPKCS12::CDialogPKCS12(SSLCertificates *Certificate, QString Filename, boo
     this->ui->pushButtonImportCert->hide();
     this->ui->pushButtonImportMain->hide();
     this->ui->pushButtonPushAll->hide();
+    for (unsigned long long i=0; i<this->cert->p12Encrypt.size();i++)
+    {
+      this->ui->comboBoxCertEncryption->addItem(QString::fromStdString(this->cert->p12Encrypt[i].second),QVariant(this->cert->p12Encrypt[i].first));
+      this->ui->comboBoxKeyEncryption->addItem(QString::fromStdString(this->cert->p12Encrypt[i].second),QVariant(this->cert->p12Encrypt[i].first));
+    }
+    for (unsigned long long i=0; i<this->cert->p12KeyType.size();i++)
+    {
+      this->ui->comboBoxKeyType->addItem(QString::fromStdString(this->cert->p12KeyType[i].second),QVariant(this->cert->p12KeyType[i].first));
+    }
   }
   else
   {
+    this->ui->comboBoxCertEncryption->hide();
+    this->ui->labelCertEncryption->hide();
+    this->ui->comboBoxKeyEncryption->hide();
+    this->ui->labelKeyEncryption->hide();
+    this->ui->comboBoxKeyType->hide();
+    this->ui->labelKeyType->hide();
+
     this->ui->lineEditPassword->hide();
     this->ui->labelPassword->hide();
     this->ui->pushButtonLoadCert->hide();
@@ -179,7 +195,37 @@ void CDialogPKCS12::on_pushButtonSaveAs_clicked()
   QString pass=ui->lineEditPassword->text();
   ui->lineEditPassword->setText("                ");
   ui->lineEditPassword->setText("");
-  switch (this->cert->save_to_pkcs12(file,name.toLocal8Bit().data(),pass.toLocal8Bit().data()))
+
+  int keyType,certEncrypt,keyEncrypt = 0;
+  if (ui->comboBoxKeyType->currentData().canConvert(QMetaType::Int))
+  {
+    keyType = ui->comboBoxKeyType->currentData().toInt();
+  }
+  else
+  {
+    QMessageBox::warning(this,tr("Error in keytype"),tr("Invalid key type : ")+ui->comboBoxKeyType->currentData().toString());
+    return;
+  }
+  if (ui->comboBoxCertEncryption->currentData().canConvert(QMetaType::Int))
+  {
+    certEncrypt = ui->comboBoxCertEncryption->currentData().toInt();
+  }
+  else
+  {
+    QMessageBox::warning(this,tr("Error in keytype"),tr("Invalid key type : ")+ui->comboBoxCertEncryption->currentData().toString());
+    return;
+  }
+  if (ui->comboBoxKeyEncryption->currentData().canConvert(QMetaType::Int))
+  {
+    keyEncrypt = ui->comboBoxKeyEncryption->currentData().toInt();
+  }
+  else
+  {
+    QMessageBox::warning(this,tr("Error in keytype"),tr("Invalid key type : ")+ui->comboBoxKeyEncryption->currentData().toString());
+    return;
+  }
+
+  switch (this->cert->save_to_pkcs12(file,name.toLocal8Bit().data(),pass.toLocal8Bit().data(),keyEncrypt,certEncrypt,0,0,keyType))
   {
     case 0:
       QMessageBox::information(this,tr("Saved"),tr("File saved"));

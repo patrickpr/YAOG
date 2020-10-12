@@ -1116,20 +1116,45 @@ int SSLCertificates::get_key_params(keyTypes* keytype,std::string &keyTypeString
     return 1;
 }
 
-int SSLCertificates::save_to_pkcs12(FILE *file, char* name,char* pass)
+/**
+ * @brief SSLCertificates::save_to_pkcs12
+ * @param file FILE Handler to file
+ * @param name char* Friendly name of p12
+ * @param pass char* password
+ * @param keyEcrypt int Key encryption NID or 0 for default
+ * @param certEcrypt int Certificate encryption NID or 0 for default
+ * @param keyIterations int Number of key iterations or 0 for default (PKCS12_DEFAULT_ITER)
+ * @param macIterations int Number of MAC iterations or 0 for default (1)
+ * @parma keyType int 0 = none, KEY_SIG = Signature key, KEY_EX = Export key
+ * @return int 1=error generating key, 2=error saving file, 0=OK
+ */
+int SSLCertificates::save_to_pkcs12(FILE *file, char* name,char* pass,
+                       int keyEcrypt, int certEcrypt, int  keyIterations, int macIterations, int keyType )
 {
     PKCS12 *newkey;
+    if (keyIterations == 0 ) keyIterations = PKCS12_DEFAULT_ITER;
+    switch (keyType)
+    {
+      case 0: break;
+      case KEY_SIG : break;
+      case KEY_EX : break;
+      default:
+        // Error message TODO
+        return 1;
+        break;
+    }
+
     newkey = PKCS12_create(
                 pass, //char *pass
                 name, // char *name
                 this->pkey, //EVP_PKEY *pkey
                 this->x509, //X509 *cert,
                 this->ca,   //STACK_OF(X509) *ca,
-                0,      //    int nid_key
-                0,      //    int nid_cert
-                PKCS12_DEFAULT_ITER,      //    int iter
-                0,      //    int mac_iter
-                NID_key_usage);      //   int keytype
+                keyEcrypt,      //    int nid_key
+                certEcrypt,      //    int nid_cert
+                keyIterations,      //    int iter
+                macIterations,      //    int mac_iter
+                keyType); //   int keytype
     if (newkey==nullptr)
       {
         this->get_ssl_errors();

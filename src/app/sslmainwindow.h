@@ -25,8 +25,8 @@
 #include "cdialogpkcs12.h"
 #include "stackwindow.h"
 
-#define YAOGVERSION "1.1.1"
-#define YAOGVERSIONF "01010100"
+#define YAOGVERSION "1.1.2"
+#define YAOGVERSIONF "01010200"
 #define YAOGPLATFORM "W64"
 #define UPDATESRC "https://www.proy.org/yaog/update.php"
 

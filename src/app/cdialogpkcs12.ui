@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>492</width>
-    <height>411</height>
+    <height>471</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -152,7 +152,7 @@
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>370</y>
+     <y>430</y>
      <width>461</width>
      <height>31</height>
     </rect>
@@ -193,6 +193,75 @@
      </widget>
     </item>
    </layout>
+  </widget>
+  <widget class="QComboBox" name="comboBoxKeyType">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>360</y>
+     <width>90</width>
+     <height>22</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLabel" name="labelKeyType">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>340</y>
+     <width>80</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Private key flag</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="labelKeyEncryption">
+   <property name="geometry">
+    <rect>
+     <x>22</x>
+     <y>383</y>
+     <width>80</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Key encryption</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="labelCertEncryption">
+   <property name="geometry">
+    <rect>
+     <x>130</x>
+     <y>340</y>
+     <width>91</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Cert encryption</string>
+   </property>
+  </widget>
+  <widget class="QComboBox" name="comboBoxKeyEncryption">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>402</y>
+     <width>201</width>
+     <height>22</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QComboBox" name="comboBoxCertEncryption">
+   <property name="geometry">
+    <rect>
+     <x>130</x>
+     <y>360</y>
+     <width>231</width>
+     <height>22</height>
+    </rect>
+   </property>
   </widget>
  </widget>
  <resources/>

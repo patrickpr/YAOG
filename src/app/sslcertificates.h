@@ -182,6 +182,20 @@ public:
      * check ssl errors
      */
     int set_cert_PEM(const char* Skey, const char *password=nullptr);
+
+    std::vector<std::pair<int,std::string>> p12Encrypt =
+    {{0,"Default"},
+     {NID_pbe_WithSHA1And3_Key_TripleDES_CBC,LN_pbe_WithSHA1And3_Key_TripleDES_CBC},
+     {NID_pbe_WithSHA1And2_Key_TripleDES_CBC,LN_pbe_WithSHA1And2_Key_TripleDES_CBC},
+     {NID_pbe_WithSHA1And128BitRC4,LN_pbe_WithSHA1And128BitRC4},
+     {NID_pbe_WithSHA1And40BitRC4,LN_pbe_WithSHA1And40BitRC4}
+    };
+
+    std::vector<std::pair<int,std::string>> p12KeyType =
+    {{0,"None"},
+     {KEY_EX, "Exchange key"},
+     {KEY_SIG, "Signature key"}
+    };
     /**
      * @brief save_to_pkcs12 : save cert and key to pkcs12 file
      * @param file : opened file descriptor
@@ -189,7 +203,8 @@ public:
      * @param pass : password
      * @return 0: success, 1: error creating p12 struct, 2 : error writing p12
      */
-    int save_to_pkcs12(FILE* file, char *name, char *pass);
+    int save_to_pkcs12(FILE* file, char *name, char *pass,
+                       int keyEcrypt = 0, int certEcrypt = 0, int  keyIterations = 0, int macIterations = 0, int keyType = 0 );
     /**
      * @brief find_friendly_name : copy of SSL Demo pkread.c to find name of pkcs12 structure
      * @param p12 : pkcs12 structure
