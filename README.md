@@ -5,7 +5,7 @@
 
 Yet Another Openssl GUI : Qt base openssl GUI to create CSR, certificates, keys (RSA / DSA / EC), P12 etc...
 
-Current version :  1.1.1 using openSSL 1.1.1g 
+Current version :  1.1.2 using openSSL 1.1.1g 
 
 This project aims to allow creating certificates / keys in a quick and easy way.
 
@@ -28,7 +28,7 @@ Platforms for release binaries :
 
 Binary includes openssl library version 1.1.1g compiled for 64 bits Windows platform.
 
-Source code for openssl can be found at : ![OpenSSL source](https://www.openssl.org/source/)
+Source code for openssl can be found at : https://www.openssl.org/source/
 
 Licence : GPL V3
 
