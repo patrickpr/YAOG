@@ -39,3 +39,6 @@ Main (and only !) window :
 
 ![MAIN](img/main.jpg)
 
+## See also
+* [List of cryptography GUI tools](https://gist.github.com/stokito/eea7ee50d51e1db30122e2e33a62723e)
+
